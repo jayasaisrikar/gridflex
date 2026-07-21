@@ -113,7 +113,7 @@ describe('end-to-end pipeline', () => {
   it('yields a zero claim when telemetry quality collapses', () => {
     // Both layers gate on completeness, and they must agree rather than one
     // silently carrying the other.
-    const frame = buildFeatureFrame(readingsFor(7, () => 1600, (i) => (i % 2 === 0 ? 'BAD' : 'GOOD')));
+    const frame = buildFeatureFrame(readingsFor(7, () => 1600, (i) => (i % 2 === 0 ? 'SUSPECT' : 'GOOD')));
     const envelope = computeEnvelope(envelopeInput({ telemetryCompleteness: frame.completeness }));
 
     const forecast = forecaster.forecast({

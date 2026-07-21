@@ -16,10 +16,25 @@ import { type MilliKw, kwNumberToMilliKw, medianBigInt } from '@gridflex/engine'
 
 export const FEATURE_PIPELINE_VERSION = 'gridflex-features-1.0.0';
 
-/** Telemetry quality, mirroring the `telemetry_quality` enum in the schema. */
-export type TelemetryQuality = 'GOOD' | 'SUSPECT' | 'BAD' | 'MISSING';
+/**
+ * Telemetry quality, mirroring the `telemetry_quality` enum exactly.
+ *
+ * Kept in lockstep with the database enum deliberately: an earlier version of
+ * this type invented a `BAD` value that does not exist and omitted `ESTIMATED`
+ * and `QUARANTINED` that do. The effect was that real qualities were excluded
+ * by accident rather than by decision, and tests exercised a value that could
+ * never occur.
+ */
+export type TelemetryQuality = 'GOOD' | 'ESTIMATED' | 'SUSPECT' | 'MISSING' | 'QUARANTINED';
 
-/** Only GOOD readings are admitted to a feature frame. */
+/**
+ * Only GOOD readings are admitted to a feature frame.
+ *
+ * ESTIMATED is excluded on purpose. An estimated reading is a value the source
+ * derived rather than measured, and a forecast built on it would inherit that
+ * derivation without saying so — the same objection that makes this pipeline
+ * refuse to interpolate its own gaps.
+ */
 const ADMISSIBLE_QUALITY: TelemetryQuality = 'GOOD';
 
 /** A single raw reading, as read from `telemetry_readings`. */

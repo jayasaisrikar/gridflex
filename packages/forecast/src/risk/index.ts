@@ -11,6 +11,7 @@
  */
 import { kwStringToMilliKw, milliKwToKwString } from '@gridflex/engine';
 import type { ReductionPlan } from '../plan/index.js';
+import type { SafetyStatus } from '../safety/index.js';
 
 export const RISK_ENGINE_VERSION = 'gridflex-risk-1.0.0';
 
@@ -44,10 +45,25 @@ export interface RiskInput {
   /** Age of the newest telemetry reading, in seconds. */
   readonly telemetryAgeSeconds: number;
   readonly telemetryCompleteness: number;
-  /** Degrees C between current temperature and the facility's thermal limit. */
+  /**
+   * Degrees C between current temperature and the thermal limit, or null when
+   * no measurement backs it. Callers should derive this via
+   * `safety.thermalMarginC`, which returns null for simulated, stale, or absent
+   * readings rather than passing a number that looks measured.
+   */
   readonly thermalMarginC: number | null;
-  /** Battery state of charge in [0, 1], or null when no storage is involved. */
+  /** Battery state of charge in [0, 1], or null when unbacked. */
   readonly batteryStateOfCharge: number | null;
+  /**
+   * Provenance of the safety signals, when available. Supplied so a refusal can
+   * say WHY the value is missing — "the sensor is simulated" and "there is no
+   * sensor" are different operational problems with different fixes.
+   */
+  readonly safetyProvenance?: {
+    readonly thermalStatus: SafetyStatus;
+    readonly stateOfChargeStatus: SafetyStatus;
+    readonly simulationDrill: boolean;
+  };
   /** Completed drills at this facility, and how many delivered on target. */
   readonly priorDrillCount: number;
   readonly priorDrillSuccessCount: number;
@@ -138,12 +154,18 @@ export function assessRisk(input: RiskInput): RiskAssessment {
   const usesCooling = plan.allocations.some((a) => a.mechanismType === 'COOLING');
   if (usesCooling) {
     if (input.thermalMarginC === null) {
+      const status = input.safetyProvenance?.thermalStatus;
       factors.push(
         factor(
-          'THERMAL_MARGIN_UNKNOWN',
+          status === 'SIMULATED' ? 'THERMAL_MARGIN_SIMULATED' : 'THERMAL_MARGIN_UNKNOWN',
           'BLOCKER',
-          'Plan raises cooling setpoints but no thermal margin is available.',
-          { uses_cooling: true },
+          status === 'SIMULATED'
+            ? 'Plan raises cooling setpoints, but the only thermal reading is simulated. ' +
+              'Simulated safety telemetry cannot authorise a real reduction.'
+            : status === 'STALE'
+              ? 'Plan raises cooling setpoints, but the newest thermal reading is too old to describe the facility now.'
+              : 'Plan raises cooling setpoints but no thermal margin is available.',
+          { uses_cooling: true, thermal_status: status ?? 'UNKNOWN' },
         ),
       );
     } else if (input.thermalMarginC < MINIMUM_THERMAL_MARGIN_C) {
@@ -162,10 +184,19 @@ export function assessRisk(input: RiskInput): RiskAssessment {
   const usesStorage = plan.allocations.some((a) => a.mechanismType === 'STORAGE');
   if (usesStorage) {
     if (input.batteryStateOfCharge === null) {
+      const status = input.safetyProvenance?.stateOfChargeStatus;
       factors.push(
-        factor('BATTERY_SOC_UNKNOWN', 'BLOCKER', 'Plan discharges storage but state of charge is unknown.', {
-          uses_storage: true,
-        }),
+        factor(
+          status === 'SIMULATED' ? 'BATTERY_SOC_SIMULATED' : 'BATTERY_SOC_UNKNOWN',
+          'BLOCKER',
+          status === 'SIMULATED'
+            ? 'Plan discharges storage, but the only state-of-charge reading is simulated. ' +
+              'Simulated safety telemetry cannot authorise a real discharge.'
+            : status === 'STALE'
+              ? 'Plan discharges storage, but the newest state-of-charge reading is too old.'
+              : 'Plan discharges storage but state of charge is unknown.',
+          { uses_storage: true, state_of_charge_status: status ?? 'UNKNOWN' },
+        ),
       );
     } else if (input.batteryStateOfCharge < MINIMUM_BATTERY_STATE_OF_CHARGE) {
       factors.push(

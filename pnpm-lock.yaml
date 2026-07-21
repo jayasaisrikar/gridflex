@@ -218,6 +218,9 @@ importers:
         specifier: workspace:*
         version: link:../engine
     devDependencies:
+      '@gridflex/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@types/node':
         specifier: ^22.20.1
         version: 22.20.1

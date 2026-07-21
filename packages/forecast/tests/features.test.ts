@@ -88,12 +88,15 @@ describe('buildFeatureFrame — quality gating', () => {
     expect(frame.intervals[0]?.sampleCount).toBe(1);
   });
 
-  it.each(['SUSPECT', 'BAD', 'MISSING'] as const)('excludes %s readings', (quality) => {
+  it.each(['ESTIMATED', 'SUSPECT', 'MISSING', 'QUARANTINED'] as const)(
+    'excludes %s readings',
+    (quality) => {
     const frame = buildFeatureFrame({ ...base, readings: [reading(0, 1600, quality)] });
     expect(frame.intervals[0]?.powerMkw).toBeNull();
     expect(frame.qualityBlocks[0]?.reason).toBe('QUALITY_EXCLUDED');
     expect(frame.qualityBlocks[0]?.excluded).toEqual({ [quality]: 1 });
-  });
+    },
+  );
 
   it('NEVER interpolates across a gap', () => {
     // Intervals 0 and 2 are populated, 1 is empty. A naive pipeline would fill
@@ -112,7 +115,7 @@ describe('buildFeatureFrame — quality gating', () => {
     // These imply different fixes: a dead connector vs a misbehaving meter.
     const frame = buildFeatureFrame({
       ...base,
-      readings: [reading(0, 1600, 'BAD')],
+      readings: [reading(0, 1600, 'QUARANTINED')],
     });
     expect(frame.qualityBlocks[0]?.reason).toBe('QUALITY_EXCLUDED');
     expect(frame.qualityBlocks[1]?.reason).toBe('NO_READING');
@@ -122,15 +125,15 @@ describe('buildFeatureFrame — quality gating', () => {
   it('tallies multiple exclusion qualities in one interval', () => {
     const frame = buildFeatureFrame({
       ...base,
-      readings: [reading(0, 1, 'BAD'), reading(1, 2, 'BAD'), reading(2, 3, 'SUSPECT')],
+      readings: [reading(0, 1, 'SUSPECT'), reading(1, 2, 'SUSPECT'), reading(2, 3, 'ESTIMATED')],
     });
-    expect(frame.qualityBlocks[0]?.excluded).toEqual({ BAD: 2, SUSPECT: 1 });
+    expect(frame.qualityBlocks[0]?.excluded).toEqual({ ESTIMATED: 1, SUSPECT: 2 });
   });
 
   it('keeps a good reading even when bad ones share the interval', () => {
     const frame = buildFeatureFrame({
       ...base,
-      readings: [reading(0, 1600, 'BAD'), reading(1, 1500, 'GOOD')],
+      readings: [reading(0, 1600, 'QUARANTINED'), reading(1, 1500, 'GOOD')],
     });
     expect(frame.intervals[0]?.powerMkw).toBe(1_500_000n);
     expect(frame.qualityBlocks).toHaveLength(2); // intervals 1 and 2, not 0
@@ -180,7 +183,7 @@ describe('buildFeatureFrame — completeness', () => {
   it('counts a quality-excluded interval as incomplete', () => {
     const frame = buildFeatureFrame({
       ...base,
-      readings: [reading(0, 1), reading(5, 1), reading(10, 1), reading(15, 1, 'BAD')],
+      readings: [reading(0, 1), reading(5, 1), reading(10, 1), reading(15, 1, 'ESTIMATED')],
     });
     expect(frame.completeness).toBe(0.75);
   });

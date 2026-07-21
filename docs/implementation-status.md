@@ -306,10 +306,11 @@ emits a user-facing `claimed*` field.
 | `agent` | 45 |
 | `anomaly` | 39 |
 | `learning` | 24 |
+| `safety` | 31 |
 | `explain` | 27 |
 | `end-to-end` | 5 |
 | `trust-boundary` | 6 |
-| **Total** | **277** |
+| **Total** | **309** |
 
 Plus **10 integration tests** against a real Postgres, excluded from the default
 run and invoked with `pnpm test:integration` after `pnpm local:db:up`. They run
@@ -317,8 +318,8 @@ against local Docker only — `assertLocal` refuses any non-localhost host, sinc
 they write drills and spec §25 forbids that against the live database. Each runs
 in a transaction that is rolled back.
 
-Monorepo total is now **410 passing** (engine 110, contracts 23, forecast 277),
-plus 10 integration, up from 133.
+Monorepo total is now **442 passing** (engine 110, contracts 23, forecast 309),
+plus 16 integration, up from 133.
 
 **All eight AI sub-projects are implemented.** Typecheck clean under full strict mode across all five packages.
 
@@ -454,6 +455,86 @@ Same real data, after the fix:
 
 A regression test pins both halves, and a further test confirms a genuine spike
 outside the drill window is still caught.
+
+## Safety telemetry connector (thermal and state of charge)
+
+Added 2026-07-22 to address the binding constraint: every plan touching cooling
+or storage blocked because nothing produced `thermal.max_inlet_c` or
+`battery.state_of_charge_pct`.
+
+### What was already there
+
+The canonical metrics were **already defined** in `packages/contracts`
+(`thermal.max_inlet_c` in C, `battery.state_of_charge_pct` in %), with unit
+validation that rejects rather than coerces. Nothing produced them. `apps/worker`
+is an empty directory and all four registered connectors are `SIMULATOR`
+emitting only `facility.active_power_kw`.
+
+### The design problem
+
+There is no BMS or BESS to connect to. Producing simulated thermal and SoC data
+would convert the risk engine's honest `THERMAL_MARGIN_UNKNOWN` block into a
+pass — authorising a real physical reduction against fabricated safety data.
+That is strictly worse than refusing, because a refusal is visible and a false
+pass is not.
+
+### What was built
+
+- [x] `safety` — resolves readings into a signal carrying explicit provenance:
+      **MEASURED**, **SIMULATED**, **STALE**, or **ABSENT**. `satisfiesSafetyGate`
+      then decides what that provenance is worth for the drill being run:
+
+      MEASURED   satisfies the gate.
+      SIMULATED  satisfies it ONLY for a simulation drill.
+      STALE      never satisfies it, in simulation or otherwise.
+      ABSENT     never satisfies it.
+
+      `thermalMarginC` and `stateOfCharge` return **null** whenever the gate is
+      unsatisfied, so a caller cannot use a simulated value as though measured.
+      The safety age limit is 300s, deliberately tighter than the 900s general
+      telemetry limit — a thermal margin is what stands between a plan and
+      equipment damage.
+
+- [x] `safety/simulator-source` — deterministic seeded source emitting both
+      metrics, with inlet temperature rising during cooling reduction and charge
+      draining during discharge. Every reading is marked `simulated: true`, and a
+      test asserts that invariant directly.
+
+- [x] Risk engine consumes provenance. A blocked plan now distinguishes
+      `THERMAL_MARGIN_SIMULATED` from `THERMAL_MARGIN_UNKNOWN` and
+      `THERMAL_MARGIN_STALE` — "the sensor is simulated", "there is no sensor",
+      and "the sensor is late" are different operational problems with different
+      fixes, and a single UNKNOWN code hid that.
+
+### Integration-verified round trip
+
+Against a real Postgres: simulated readings persist as canonical metrics with
+correct units, read back with provenance derived **from the connector type**
+rather than from the reading claiming it, and are correctly refused as
+authorisation for a real drill while authorising a simulation drill on the same
+data. A separate test inserts a `BMS_API` reading and confirms it resolves
+MEASURED and opens the gate — the refusal is about provenance, not a permanent
+block.
+
+### Honest limitation
+
+**This does not unblock real drills, and is not meant to.** It makes the missing
+connector explicit, testable, and safe to operate around. A real drill touching
+cooling or storage still requires genuine BMS and BESS integration. What changed
+is that the pipeline is now exercisable end to end, and the refusal states which
+of three distinct problems is actually present.
+
+### Defect found: an invented telemetry quality
+
+`features` declared `TelemetryQuality` as `GOOD | SUSPECT | BAD | MISSING`. The
+real enum is `GOOD | ESTIMATED | SUSPECT | MISSING | QUARANTINED`. `BAD` does not
+exist, so tests exercised a value that can never occur, while `ESTIMATED` and
+`QUARANTINED` were excluded by accident rather than by decision.
+
+Corrected to match the enum exactly, with the exclusion of `ESTIMATED` now
+deliberate and documented: an estimated reading is derived rather than measured,
+and a forecast built on one would inherit that derivation silently — the same
+objection that makes this pipeline refuse to interpolate its own gaps.
 
 ### Still outstanding for the AI layer
 - [ ] LLM explanation layer (8).

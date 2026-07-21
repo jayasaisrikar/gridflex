@@ -10,3 +10,5 @@ export * from './agent/orchestrator.js';
 export * from './anomaly/index.js';
 export * from './learning/index.js';
 export * from './explain/index.js';
+export * from './safety/index.js';
+export * from './safety/simulator-source.js';
