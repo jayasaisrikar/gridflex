@@ -1,0 +1,30 @@
+{
+  "name": "@gridflex/forecast",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@gridflex/engine": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "vitest": "^3.0.5"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ]
+}

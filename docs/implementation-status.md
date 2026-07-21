@@ -197,6 +197,126 @@ Typecheck clean under full strict mode across all four packages.
 
 ---
 
+## AI layer (`packages/forecast`) — new, spans a planned Phase G
+
+Added on 2026-07-21. The AI capability set (forecasting, planning, risk,
+agentic orchestration, anomaly detection, learning, explanation) was found to be
+**entirely unimplemented** — the platform was telemetry and reporting only, with
+zero AI dependencies anywhere in the tree.
+
+That scope decomposes into eight sub-projects. This entry covers the first two.
+
+### Design decisions taken
+
+1. **Versioned forecaster interface over a TypeScript baseline.** No Python
+   sidecar. `FlexibilityForecaster` is an interface; the seasonal-naive baseline
+   is one implementation, and a gradient-boosted model can be another without
+   touching consumers. The backtest harness is the instrument that decides when
+   that swap is justified — by measurement, not assumption.
+2. **Planning at mechanism granularity.** The schema has no workload/job table.
+   Rather than inventing one for a connector that does not exist yet, planning
+   will use `flexibility_mechanisms` and read optional workload hints from the
+   existing `metadata` jsonb. A real table gets designed from a real payload.
+3. **Forecast confidence strictly subordinate to envelope confidence.** See below.
+
+### The trust boundary
+
+The governing constraint is that a statistical model must never be able to raise
+a claim above what the certified assurance layer supports:
+
+    claimed_kw         = min(forecast_kw, envelope_kw)
+    claimed_confidence = min(model_confidence, envelope_confidence)
+
+and a BLOCKED envelope forces a zero claim regardless of model output.
+
+This is enforced structurally, not by convention. `packages/engine` does not
+depend on `packages/forecast`; the arrow points one way only. Four tests in
+`tests/trust-boundary.test.ts` read the source tree and fail if that reverses,
+if the forecast package reaches MRV/Passport/evidence/canonical-json, if it
+acquires a third-party runtime dependency, or if any module other than the clamp
+emits a user-facing `claimed*` field.
+
+### Completed
+
+- [x] `features` — resamples raw `telemetry_readings` onto a fixed interval grid.
+      Only `GOOD` readings are admitted; the interval value is the exact **median**
+      of its samples, so a single stuck-high meter cannot move a feature the way
+      it would move a mean. **Gaps are never interpolated** — the same refusal the
+      MRV engine makes (§14) — and `NO_READING` is distinguished from
+      `QUALITY_EXCLUDED` because those imply different operational fixes.
+- [x] `forecast/types` — the `FlexibilityForecaster` contract, horizons of
+      15/30/60 min, and a completeness gate set to 0.9 to match the envelope
+      engine's §10.2 gate, so the two layers refuse on the same evidence.
+- [x] `forecast/seasonal-baseline` — empirical quantiles over
+      (weekday|weekend, 30-min bucket) pools. Quantiles use nearest-rank, so
+      every output is a load level the facility has actually run at rather than a
+      synthetic midpoint. Reducible power is headroom above the minimum safe
+      load, and the **lower** bound derives from the **low** load case, because
+      low load is when the safe floor is nearest. Confidence compounds three
+      penalties — incompleteness, thin seasonal pool, and interval width relative
+      to the estimate — so a model that does not know says so.
+- [x] `forecast/clamp` — the subordination described above, with both raw inputs
+      retained for diagnostics but explicitly marked not-for-display.
+- [x] `backtest` — replays historical windows and scores accuracy (MAE, signed
+      bias) **and interval coverage** separately. Coverage is the load-bearing
+      metric: a model with excellent MAE and 40% coverage on an 80% interval is
+      lying about its own uncertainty, which is the more dangerous failure once
+      confidence propagates into operator-facing claims.
+
+### Test results
+
+**83 tests passing** in `packages/forecast`, 0 failing.
+
+| Suite | Tests |
+|---|---:|
+| `features` | 23 |
+| `seasonal-baseline` | 26 |
+| `clamp` | 13 |
+| `backtest` | 12 |
+| `end-to-end` | 5 |
+| `trust-boundary` | 4 |
+| **Total** | **83** |
+
+Monorepo total is now **216 passing** (engine 110, contracts 23, forecast 83),
+up from 133. Typecheck clean under full strict mode across all five packages.
+
+The clamp suite includes an exhaustive grid over 7 forecast values x 6 envelope
+values x 7 model confidences x 7 envelope confidences (2,058 combinations)
+asserting the claim never exceeds either input and never goes negative.
+
+`end-to-end.test.ts` drives raw readings through features, forecast and clamp
+against the **real** `computeEnvelope`, not a stub — the clamp takes a structural
+`EnvelopeCeiling` to stay decoupled, so nothing else would prove the two shapes
+actually line up.
+
+### Notable finding
+
+The trust-boundary test failed on first run and the defect was in the test, not
+the code: the import scanner matched ordinary prose inside a doc comment
+(`... tell "500 kW" from "we guessed 500 kW" ...`) as an import statement. An
+architectural test that reports phantom violations gets ignored, and an ignored
+boundary test is worse than none. The scanner now strips comments first.
+
+### Still outstanding for the AI layer
+
+- [ ] Risk assessment agent (sub-project 3).
+- [ ] Reduction planner over mechanisms (4).
+- [ ] Agent orchestration and tool surface (5) — **requires a database**.
+- [ ] Anomaly detection (6).
+- [ ] Learning loop over completed drills (7) — **requires a database**.
+- [ ] LLM explanation layer (8).
+- [ ] Landing-page AI section (Predict / Plan / Protect / Learn).
+
+### Honest limitation
+
+Everything above is fixture-driven and unit-tested. **None of it has been
+exercised against a real database or real facility telemetry**, because Phase A
+remains blocked on connectivity (see below). The seasonal baseline has never seen
+a real load curve. No claim is being made that this is validated against
+production data — only that its logic is correct and its boundaries hold.
+
+---
+
 ## Phases B–F
 
 The pure domain layer is substantially built. Not yet scaffolded:
