@@ -1,0 +1,121 @@
+/* Hallmark · macrostructure: Narrative Workflow · N3 side-rail (operator variant) · Ft2 inline
+ * theme: custom · vibe: "instrument-grade, dark control room, evidence over decoration"
+ * paper: oklch(14% 0.012 250) · accent: oklch(64% 0.150 250)
+ * display: Geist · body: Geist · mono: JetBrains Mono
+ * axes: dark / geometric-sans / cool
+ * studied: no · context: user-provided · genre: modern-minimal
+ *
+ * COLOUR LAW (spec 16.4) — this is a safety constraint, not a style preference:
+ *   green  = TESTED / VERIFIED only
+ *   amber  = DECLARED / MODELED / STALE
+ *   red    = VIOLATION / ABORT / BLOCKER only
+ *   accent = UI chrome only (active nav, focus, links) — deliberately COOL BLUE so an
+ *            operator can never confuse "this control is selected" with "this value is
+ *            verified". The semantic triad owns green/amber/red exclusively.
+ *   Colour never carries meaning alone: every status also has a glyph and a text label.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* ---- Paper (dark, tinted toward the anchor; never #000) ---- */
+  --color-paper: oklch(14% 0.012 250);
+  --color-paper-2: oklch(17.5% 0.013 250); /* raised surface — lighter, per dark-mode elevation */
+  --color-paper-3: oklch(21% 0.014 250); /* second elevation step */
+  --color-paper-sunk: oklch(11.5% 0.011 250); /* wells, inputs, code */
+
+  /* ---- Ink ---- */
+  --color-ink: oklch(93% 0.008 250);
+  --color-ink-2: oklch(78% 0.010 250); /* secondary text */
+  --color-muted: oklch(58% 0.012 250); /* de-emphasised, captions */
+  --color-faint: oklch(42% 0.012 250); /* placeholder, disabled */
+
+  /* ---- Rules (hairlines) ---- */
+  --color-rule: oklch(28% 0.012 250);
+  --color-rule-2: oklch(23% 0.012 250);
+  --color-rule-strong: oklch(38% 0.014 250);
+
+  /* ---- Accent: UI chrome ONLY. Never a status. ---- */
+  --color-accent: oklch(64% 0.150 250);
+  --color-accent-dim: oklch(52% 0.120 250);
+  --color-accent-wash: oklch(30% 0.055 250);
+  --color-accent-ink: oklch(14% 0.012 250); /* text on accent fill — accent L>50 so ink is dark */
+  --color-focus: oklch(72% 0.190 250); /* higher chroma for instant visibility */
+
+  /* ---- Semantic status. Reserved. Do not reuse for chrome. ---- */
+  --color-tested: oklch(72% 0.145 152); /* green — TESTED / VERIFIED */
+  --color-tested-wash: oklch(26% 0.050 152);
+  --color-declared: oklch(78% 0.130 78); /* amber — DECLARED / MODELED / STALE */
+  --color-declared-wash: oklch(28% 0.048 78);
+  --color-violation: oklch(66% 0.185 25); /* red — VIOLATION / ABORT / BLOCKER */
+  --color-violation-wash: oklch(27% 0.070 25);
+  --color-simulated: oklch(70% 0.115 300); /* violet — SIMULATED data marker (spec 11) */
+  --color-simulated-wash: oklch(27% 0.055 300);
+
+  /* ---- Type ---- */
+  /* Self-hosted via next/font — see layout.tsx. Fallbacks are for the pre-hydration
+     paint only; the variables are set on <html>. */
+  --font-display: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, 'SF Mono', monospace;
+
+  /* Perfect-fourth-ish scale (1.25 major third at the small end, opening up at display) */
+  --text-2xs: 0.6875rem; /* 11px — rail labels, unit suffixes */
+  --text-xs: 0.75rem; /* 12px — captions, table meta */
+  --text-sm: 0.8125rem; /* 13px — dense UI, table body */
+  --text-base: 0.9375rem; /* 15px — body */
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
+  --text-readout: clamp(2.5rem, 5vw + 0.5rem, 3.75rem); /* the big instrument number */
+
+  --leading-tight: 1.1;
+  --leading-snug: 1.3;
+  --leading-body: 1.55;
+
+  /* Dark mode reduces optical weight: body sits at 350, not 400 */
+  --weight-body: 350;
+  --weight-medium: 500;
+  --weight-display: 700;
+
+  /* ---- Space (4pt) ---- */
+  --space-3xs: 0.125rem;
+  --space-2xs: 0.25rem;
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4.5rem;
+
+  /* ---- Radius: tight. Instrument panels are not soft. ---- */
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 5px;
+
+  /* ---- Rules ---- */
+  --rule-hair: 1px;
+  --rule-thick: 2px;
+
+  /* ---- Motion ---- */
+  --dur-fast: 90ms;
+  --dur-base: 150ms;
+  --dur-slow: 240ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ---- Layout ---- */
+  --rail-width: 13.5rem;
+  --measure: 68ch;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+  }
+}

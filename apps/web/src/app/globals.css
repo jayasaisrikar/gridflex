@@ -1,0 +1,673 @@
+@import './tokens.css';
+
+/* ============================================================
+   Base
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  /* clip, never hidden — hidden breaks position:sticky in the rail */
+  overflow-x: clip;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: var(--weight-body);
+  line-height: var(--leading-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  font-weight: var(--weight-display);
+  line-height: var(--leading-tight);
+  letter-spacing: -0.02em;
+  margin: 0;
+  /* Long facility names and hashes must never force a horizontal scrollbar */
+  overflow-wrap: anywhere;
+  min-width: 0;
+  font-style: normal;
+}
+
+p {
+  margin: 0;
+  max-width: var(--measure);
+}
+
+a {
+  color: var(--color-ink);
+  text-decoration-color: var(--color-rule-strong);
+  text-underline-offset: 0.2em;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+a:hover {
+  color: var(--color-accent);
+  text-decoration-color: var(--color-accent);
+}
+
+/* Focus must appear instantly — never animated. */
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+/* ============================================================
+   Numerals — every measured value is mono + tabular.
+   An operator scanning a column must see digits align.
+   ============================================================ */
+
+.tnum,
+.readout,
+td.num,
+.metric__value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'zero' 1;
+}
+
+/* ============================================================
+   App shell — N3 side-rail, operator variant
+   ============================================================ */
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--rail-width) minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.rail {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  border-right: var(--rule-hair) solid var(--color-rule);
+  background: var(--color-paper-sunk);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-md) 0;
+}
+
+.rail__brand {
+  padding: var(--space-xs) var(--space-md) var(--space-lg);
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+}
+
+.rail__wordmark {
+  font-family: var(--font-display);
+  font-weight: var(--weight-display);
+  font-size: var(--text-lg);
+  letter-spacing: -0.03em;
+}
+
+.rail__version {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--color-faint);
+}
+
+.rail__nav {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+}
+
+.rail__link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--text-sm);
+  color: var(--color-ink-2);
+  text-decoration: none;
+  border-left: var(--rule-thick) solid transparent;
+  /* Nav labels must never wrap to two lines */
+  white-space: nowrap;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+
+.rail__link:hover {
+  color: var(--color-ink);
+  background: var(--color-paper-2);
+}
+
+/* Active state uses the ACCENT (chrome), never a status colour. */
+.rail__link[aria-current='page'] {
+  color: var(--color-ink);
+  background: var(--color-accent-wash);
+  border-left-color: var(--color-accent);
+  font-weight: var(--weight-medium);
+}
+
+.rail__count {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--color-muted);
+}
+
+.rail__foot {
+  margin-top: auto;
+  padding: var(--space-md);
+  border-top: var(--rule-hair) solid var(--color-rule-2);
+}
+
+.main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.content {
+  padding: var(--space-xl) var(--space-2xl) var(--space-3xl);
+  min-width: 0;
+}
+
+/* ============================================================
+   Page head
+   ============================================================ */
+
+.pagehead {
+  border-bottom: var(--rule-hair) solid var(--color-rule);
+  padding-bottom: var(--space-md);
+  margin-bottom: var(--space-xl);
+}
+
+.pagehead__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+}
+
+.pagehead h1 {
+  font-size: var(--text-2xl);
+}
+
+.pagehead__sub {
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+  margin-top: var(--space-2xs);
+}
+
+/* ============================================================
+   Status chips — colour + glyph + label. Never colour alone.
+   ============================================================ */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-3xs) var(--space-xs);
+  border: var(--rule-hair) solid;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.chip__glyph {
+  font-style: normal;
+  /* The glyph is the non-colour signal. Screen readers get the label text. */
+}
+
+.chip--tested {
+  color: var(--color-tested);
+  border-color: var(--color-tested);
+  background: var(--color-tested-wash);
+}
+
+.chip--declared {
+  color: var(--color-declared);
+  border-color: var(--color-declared);
+  background: var(--color-declared-wash);
+}
+
+.chip--violation {
+  color: var(--color-violation);
+  border-color: var(--color-violation);
+  background: var(--color-violation-wash);
+}
+
+.chip--simulated {
+  color: var(--color-simulated);
+  border-color: var(--color-simulated);
+  background: var(--color-simulated-wash);
+}
+
+.chip--neutral {
+  color: var(--color-ink-2);
+  border-color: var(--color-rule-strong);
+  background: var(--color-paper-2);
+}
+
+/* ============================================================
+   Panels
+   ============================================================ */
+
+.panel {
+  background: var(--color-paper-2);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  min-width: 0;
+}
+
+.panel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.panel__title {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  font-weight: var(--weight-medium);
+}
+
+/* ============================================================
+   Metric readout — the instrument face
+   ============================================================ */
+
+.grid-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
+  gap: var(--space-md);
+}
+
+.metric__label {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  display: block;
+  margin-bottom: var(--space-xs);
+}
+
+.metric__value {
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-medium);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2xs);
+  overflow-wrap: anywhere;
+}
+
+.metric__unit {
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+  font-weight: var(--weight-body);
+}
+
+.metric__foot {
+  margin-top: var(--space-sm);
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.metric--readout .metric__value {
+  font-size: var(--text-readout);
+}
+
+/* ============================================================
+   Spec sheet (F3) — provenance tables
+   ============================================================ */
+
+.sheet-wrap {
+  overflow-x: auto;
+}
+
+.sheet {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.sheet th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  font-weight: var(--weight-medium);
+  padding: var(--space-xs) var(--space-sm);
+  border-bottom: var(--rule-hair) solid var(--color-rule-strong);
+  white-space: nowrap;
+}
+
+.sheet td {
+  padding: var(--space-sm);
+  border-bottom: var(--rule-hair) solid var(--color-rule-2);
+  vertical-align: baseline;
+}
+
+.sheet tr:last-child td {
+  border-bottom: none;
+}
+
+.sheet td.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.sheet__note {
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+}
+
+/* ============================================================
+   Proof chain (F4 step sequence) — the spine of the drill page
+   ============================================================ */
+
+.chain {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: stage;
+}
+
+.chain__step {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  gap: var(--space-md);
+  padding: var(--space-md) 0;
+  border-bottom: var(--rule-hair) solid var(--color-rule-2);
+  position: relative;
+}
+
+.chain__step:last-child {
+  border-bottom: none;
+}
+
+.chain__stage {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-faint);
+  letter-spacing: 0.04em;
+  padding-top: 0.15em;
+}
+
+.chain__step[data-state='done'] .chain__stage {
+  color: var(--color-tested);
+}
+
+.chain__step[data-state='blocked'] .chain__stage {
+  color: var(--color-violation);
+}
+
+.chain__body {
+  min-width: 0;
+}
+
+.chain__title {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  font-family: var(--font-body);
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.chain__detail {
+  color: var(--color-ink-2);
+  font-size: var(--text-sm);
+  margin-top: var(--space-2xs);
+}
+
+.chain__meta {
+  margin-top: var(--space-xs);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+  display: flex;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+/* ============================================================
+   Hash block — evidence must be readable and copyable
+   ============================================================ */
+
+.hash {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  background: var(--color-paper-sunk);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm);
+  color: var(--color-ink-2);
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+
+/* ============================================================
+   Buttons — 8 states
+   ============================================================ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-sm);
+  border: var(--rule-hair) solid var(--color-rule-strong);
+  background: var(--color-paper-3);
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.btn:hover,
+.btn.is-hover {
+  background: var(--color-paper-3);
+  border-color: var(--color-accent);
+}
+
+.btn:active,
+.btn.is-active {
+  transform: translateY(1px);
+}
+
+.btn:disabled,
+.btn[aria-disabled='true'] {
+  color: var(--color-faint);
+  border-color: var(--color-rule-2);
+  background: var(--color-paper-2);
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-ink);
+}
+
+.btn--primary:hover {
+  background: var(--color-accent-dim);
+  border-color: var(--color-accent-dim);
+}
+
+/* Destructive / operational actions read as violation-coloured (spec 16.4) */
+.btn--stop {
+  background: var(--color-violation-wash);
+  border-color: var(--color-violation);
+  color: var(--color-violation);
+}
+
+/* ============================================================
+   Simulated banner — spec 11/24: simulated data is ALWAYS labelled
+   ============================================================ */
+
+.simbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-2xl);
+  background: var(--color-simulated-wash);
+  border-bottom: var(--rule-hair) solid var(--color-simulated);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-simulated);
+  flex-wrap: wrap;
+}
+
+/* ============================================================
+   Footer — Ft2 inline single line
+   ============================================================ */
+
+.foot-line {
+  margin-top: auto;
+  border-top: var(--rule-hair) solid var(--color-rule);
+  padding: var(--space-md) var(--space-2xl);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--color-faint);
+  display: flex;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+/* ============================================================
+   Utility
+   ============================================================ */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.row {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.muted {
+  color: var(--color-muted);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ============================================================
+   Responsive — verified at 320 / 375 / 414 / 768
+   ============================================================ */
+
+@media (max-width: 900px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rail {
+    position: static;
+    height: auto;
+    border-right: none;
+    border-bottom: var(--rule-hair) solid var(--color-rule);
+  }
+
+  .rail__nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: var(--space-2xs);
+  }
+
+  .rail__link {
+    border-left: none;
+    border-bottom: var(--rule-thick) solid transparent;
+  }
+
+  .rail__link[aria-current='page'] {
+    border-left-color: transparent;
+    border-bottom-color: var(--color-accent);
+  }
+
+  .rail__count {
+    display: none;
+  }
+
+  .rail__foot {
+    display: none;
+  }
+
+  .content,
+  .simbar,
+  .foot-line {
+    padding-left: var(--space-md);
+    padding-right: var(--space-md);
+  }
+}
+
+@media (max-width: 560px) {
+  .chain__step {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2xs);
+  }
+
+  .pagehead__row {
+    flex-direction: column;
+  }
+}
