@@ -20,6 +20,7 @@ import { type MilliKw, kwNumberToMilliKw } from '@gridflex/engine';
 import type { FeatureFrame } from '../features/index.js';
 import { parseUtcInstant } from '../features/index.js';
 import {
+  MINIMUM_DISTINCT_DAYS_PER_BUCKET,
   MINIMUM_COMPLETENESS_FOR_FORECAST,
   MINIMUM_SAMPLES_PER_BUCKET,
   type FlexibilityForecaster,
@@ -70,18 +71,26 @@ export function quantileBigInt(sorted: readonly bigint[], quantile: number): big
   return sorted[rank - 1] as bigint;
 }
 
+interface SeasonalPool {
+  readonly values: bigint[];
+  /** Calendar days (UTC) the values came from. */
+  readonly days: Set<string>;
+}
+
 /** Groups a frame's populated intervals by seasonal key. */
-function buildSeasonalPools(frame: FeatureFrame): Map<string, bigint[]> {
-  const pools = new Map<string, bigint[]>();
+function buildSeasonalPools(frame: FeatureFrame): Map<string, SeasonalPool> {
+  const pools = new Map<string, SeasonalPool>();
   for (const interval of frame.intervals) {
     if (interval.powerMkw === null) continue;
-    const key = seasonalKey(parseUtcInstant(interval.intervalStart));
+    const at = parseUtcInstant(interval.intervalStart);
+    const key = seasonalKey(at);
     let pool = pools.get(key);
     if (pool === undefined) {
-      pool = [];
+      pool = { values: [], days: new Set<string>() };
       pools.set(key, pool);
     }
-    pool.push(interval.powerMkw);
+    pool.values.push(interval.powerMkw);
+    pool.days.add(new Date(at).toISOString().slice(0, 10));
   }
   return pools;
 }
@@ -90,6 +99,7 @@ function refuse(
   refusals: readonly ForecastRefusal[],
   request: ForecastRequest,
   samplesUsed: number,
+  distinctDaysUsed = 0,
 ): ForecastResult {
   return {
     modelVersion: SEASONAL_BASELINE_VERSION,
@@ -101,7 +111,10 @@ function refuse(
     horizonMinutes: request.horizonMinutes,
     completeness: request.frame.completeness,
     samplesUsed,
+    distinctDaysUsed,
+    intervalUnderpowered: distinctDaysUsed < MINIMUM_DISTINCT_DAYS_PER_BUCKET,
     refusals,
+    warnings: [],
   };
 }
 
@@ -115,14 +128,20 @@ function refuse(
 export function computeModelConfidence(params: {
   readonly completeness: number;
   readonly sampleCount: number;
+  readonly distinctDays: number;
   readonly medianMkw: bigint;
   readonly lowerMkw: bigint;
   readonly upperMkw: bigint;
 }): number {
-  const { completeness, sampleCount, medianMkw, lowerMkw, upperMkw } = params;
+  const { completeness, sampleCount, distinctDays, medianMkw, lowerMkw, upperMkw } = params;
 
   // Saturates at 24 same-bucket observations; below that, evidence is thin.
   const sampleFactor = Math.min(1, sampleCount / 24);
+
+  // Day diversity saturates at 7. A bucket seen on one day cannot support a
+  // claim about day-to-day behaviour no matter how many samples that day held —
+  // the narrow interval it produces would otherwise read as precision.
+  const dayFactor = Math.min(1, distinctDays / 7);
 
   const spread = upperMkw - lowerMkw;
   const scale = medianMkw > 0n ? medianMkw : 1n;
@@ -130,7 +149,7 @@ export function computeModelConfidence(params: {
   // A spread equal to the estimate itself drives this to zero.
   const precisionFactor = Math.max(0, 1 - relativeSpread);
 
-  const raw = completeness * sampleFactor * precisionFactor;
+  const raw = completeness * sampleFactor * dayFactor * precisionFactor;
   return Math.min(1, Math.max(0, Number(raw.toFixed(4))));
 }
 
@@ -159,23 +178,38 @@ export class SeasonalBaselineForecaster implements FlexibilityForecaster {
     const targetMs = forecastAtMs + horizonMinutes * MILLIS_PER_MINUTE;
     const key = seasonalKey(targetMs);
 
-    const pool = buildSeasonalPools(frame).get(key) ?? [];
-    if (pool.length < MINIMUM_SAMPLES_PER_BUCKET) {
+    const pool = buildSeasonalPools(frame).get(key) ?? { values: [], days: new Set<string>() };
+    const distinctDaysUsed = pool.days.size;
+
+    if (pool.values.length < MINIMUM_SAMPLES_PER_BUCKET) {
       return refuse(
         [
           {
             code: 'FORECAST_INSUFFICIENT_HISTORY',
             detail:
-              `Seasonal bucket ${key} has ${pool.length} observation(s); ` +
+              `Seasonal bucket ${key} has ${pool.values.length} observation(s); ` +
               `${MINIMUM_SAMPLES_PER_BUCKET} are required.`,
           },
         ],
         request,
-        pool.length,
+        pool.values.length,
+        distinctDaysUsed,
       );
     }
 
-    const sorted = [...pool].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    const warnings: ForecastRefusal[] = [];
+    const intervalUnderpowered = distinctDaysUsed < MINIMUM_DISTINCT_DAYS_PER_BUCKET;
+    if (intervalUnderpowered) {
+      warnings.push({
+        code: 'FORECAST_INTERVAL_UNDERPOWERED',
+        detail:
+          `Seasonal bucket ${key} draws from ${distinctDaysUsed} distinct day(s); ` +
+          `${MINIMUM_DISTINCT_DAYS_PER_BUCKET} are needed for the prediction interval to ` +
+          'reflect day-to-day variation. The stated interval understates real uncertainty.',
+      });
+    }
+
+    const sorted = [...pool.values].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
     const loadP10 = quantileBigInt(sorted, 0.1);
     const loadP50 = quantileBigInt(sorted, 0.5);
     const loadP90 = quantileBigInt(sorted, 0.9);
@@ -199,15 +233,19 @@ export class SeasonalBaselineForecaster implements FlexibilityForecaster {
       reducibleUpperMkw,
       modelConfidence: computeModelConfidence({
         completeness: frame.completeness,
-        sampleCount: pool.length,
+        sampleCount: pool.values.length,
+        distinctDays: distinctDaysUsed,
         medianMkw: reducibleMkw,
         lowerMkw: reducibleLowerMkw,
         upperMkw: reducibleUpperMkw,
       }),
       horizonMinutes,
       completeness: frame.completeness,
-      samplesUsed: pool.length,
+      samplesUsed: pool.values.length,
+      distinctDaysUsed,
+      intervalUnderpowered,
       refusals: [],
+      warnings,
     };
   }
 }

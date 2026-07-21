@@ -99,8 +99,12 @@ describe('end-to-end pipeline', () => {
     });
     const claim = clampToEnvelope(forecast, envelope);
 
-    // The model is highly confident on a perfectly flat, complete series.
-    expect(forecast.modelConfidence).toBeGreaterThan(0.9);
+    // The model is as confident as 5 weekdays of flat, complete data allow —
+    // capped by the day-diversity factor (5 of 7), NOT the >0.9 it claimed
+    // before real telemetry exposed that as unearned.
+    expect(forecast.modelConfidence).toBeGreaterThan(0.6);
+    expect(forecast.modelConfidence).toBeLessThan(0.75);
+    expect(forecast.intervalUnderpowered).toBe(false);
     // But the mechanism is only DECLARED, so the claim cannot inherit that.
     expect(claim.claimedConfidence).toBe(envelope.confidenceScore);
     expect(claim.claimedConfidence).toBeLessThan(forecast.modelConfidence);

@@ -297,6 +297,7 @@ describe('computeModelConfidence', () => {
   const solid = {
     completeness: 1,
     sampleCount: 48,
+    distinctDays: 7,
     medianMkw: 600_000n,
     lowerMkw: 590_000n,
     upperMkw: 610_000n,
@@ -343,11 +344,83 @@ describe('computeModelConfidence', () => {
     const confidence = computeModelConfidence({
       completeness: 1,
       sampleCount: 48,
+      distinctDays: 7,
       medianMkw: 0n,
       lowerMkw: 0n,
       upperMkw: 0n,
     });
     expect(Number.isFinite(confidence)).toBe(true);
     expect(confidence).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('SeasonalBaselineForecaster — day diversity (found against real telemetry)', () => {
+  it('flags an interval built from a single day as underpowered', () => {
+    // A 24-hour window populates each bucket from one day only, so the six
+    // samples in a 30-minute bucket are six consecutive 5-minute intervals.
+    // The resulting interval measures within-bucket noise, not day-to-day
+    // variation, and must not be presented as though it did.
+    const frame = frameOf({ days: 1, loadKw: (_at, i) => 1600 + (i % 3) });
+    const result = forecaster.forecast({
+      frame,
+      forecastAt: '2026-03-02T09:00:00Z',
+      horizonMinutes: 30,
+      minimumSafeLoadKw: 1000,
+    });
+
+    expect(result.status).toBe('OK');
+    expect(result.distinctDaysUsed).toBe(1);
+    expect(result.intervalUnderpowered).toBe(true);
+    expect(result.warnings[0]?.code).toBe('FORECAST_INTERVAL_UNDERPOWERED');
+  });
+
+  it('does not flag a bucket drawing from several days', () => {
+    const frame = frameOf({ days: 7, loadKw: () => 1600 });
+    const result = forecaster.forecast({
+      frame,
+      forecastAt: '2026-03-04T12:00:00Z',
+      horizonMinutes: 30,
+      minimumSafeLoadKw: 1000,
+    });
+
+    expect(result.distinctDaysUsed).toBe(5); // five weekdays in the window
+    expect(result.intervalUnderpowered).toBe(false);
+    expect(result.warnings).toHaveLength(0);
+  });
+
+  it('penalises confidence hard when only one day contributes', () => {
+    // This is the defect the real data exposed: without the day factor, a
+    // one-day bucket produced a tight interval and an unearned confidence.
+    const oneDay = frameOf({ days: 1, loadKw: (_at, i) => 1600 + (i % 3) });
+    const sevenDay = frameOf({ days: 7, loadKw: (_at, i) => 1600 + (i % 3) });
+
+    const single = forecaster.forecast({
+      frame: oneDay,
+      forecastAt: '2026-03-02T09:00:00Z',
+      horizonMinutes: 30,
+      minimumSafeLoadKw: 1000,
+    });
+    const many = forecaster.forecast({
+      frame: sevenDay,
+      forecastAt: '2026-03-04T09:00:00Z',
+      horizonMinutes: 30,
+      minimumSafeLoadKw: 1000,
+    });
+
+    expect(single.modelConfidence).toBeLessThan(many.modelConfidence);
+  });
+
+  it('day diversity is a multiplicative penalty on confidence', () => {
+    const params = {
+      completeness: 1,
+      sampleCount: 48,
+      medianMkw: 600_000n,
+      lowerMkw: 590_000n,
+      upperMkw: 610_000n,
+    };
+    const oneDay = computeModelConfidence({ ...params, distinctDays: 1 });
+    const sevenDays = computeModelConfidence({ ...params, distinctDays: 7 });
+
+    expect(oneDay).toBeCloseTo(sevenDays / 7, 3);
   });
 });

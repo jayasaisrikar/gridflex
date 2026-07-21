@@ -43,7 +43,10 @@ function stubResult(overrides: Partial<ForecastResult> = {}): ForecastResult {
     horizonMinutes: 30,
     completeness: 1,
     samplesUsed: 48,
+    distinctDaysUsed: 7,
+    intervalUnderpowered: false,
     refusals: [],
+    warnings: [],
     ...overrides,
   };
 }

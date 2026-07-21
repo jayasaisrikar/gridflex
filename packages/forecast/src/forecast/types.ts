@@ -23,6 +23,19 @@ export const MINIMUM_COMPLETENESS_FOR_FORECAST = 0.9;
 /** Minimum same-bucket observations before a seasonal estimate is trustworthy. */
 export const MINIMUM_SAMPLES_PER_BUCKET = 3;
 
+/**
+ * Distinct days a seasonal bucket must draw from before its prediction interval
+ * describes day-to-day variation rather than within-bucket noise.
+ *
+ * Found against real telemetry: a 24-hour window populates nearly every bucket
+ * from a single day, so the six samples in a 30-minute bucket were six
+ * consecutive 5-minute intervals. The resulting interval was +/-1.4 kW on a load
+ * that swings 500 kW — an interval the model had not earned. Below this
+ * threshold the estimate is still produced (the envelope clamps it regardless)
+ * but it is marked and its confidence heavily penalised.
+ */
+export const MINIMUM_DISTINCT_DAYS_PER_BUCKET = 2;
+
 export type ForecastStatus = 'OK' | 'INSUFFICIENT_DATA';
 
 export interface ForecastRefusal {
@@ -56,7 +69,18 @@ export interface ForecastResult {
   readonly horizonMinutes: number;
   readonly completeness: number;
   readonly samplesUsed: number;
+  /** Distinct calendar days contributing to the seasonal bucket. */
+  readonly distinctDaysUsed: number;
+  /**
+   * True when the bucket drew from fewer than `MINIMUM_DISTINCT_DAYS_PER_BUCKET`
+   * days, meaning the prediction interval reflects within-bucket noise and
+   * understates real uncertainty. Consumers must surface this alongside any
+   * interval they display.
+   */
+  readonly intervalUnderpowered: boolean;
   readonly refusals: readonly ForecastRefusal[];
+  /** Non-fatal caveats. Unlike refusals, these accompany a produced estimate. */
+  readonly warnings: readonly ForecastRefusal[];
 }
 
 export interface FlexibilityForecaster {

@@ -6,7 +6,33 @@ Updated at the end of each phase, per the governing instruction in the spec (§0
 
 ## Phase A — Foundation
 
-**Status: IN PROGRESS — blocked on database connectivity.**
+**Status: BLOCKER RESOLVED 2026-07-21. Exit criteria met.**
+
+The connectivity blocker recorded below was stale. The Coolify Postgres is
+reachable from the development machine at the host recorded in `.env` (not the
+internal hostname in `GridFlex_private.env`), running **PostgreSQL 18.4**.
+
+Verified by inspection (read-only):
+
+- All **26 tables** present — the migration has already been run successfully.
+- Seeded and in use: 2 organizations, 2 users, 1 facility
+  ("Lone Star Compute Facility", America/Chicago), 3 flexibility mechanisms,
+  1 facility constraint, 4 connectors.
+- Live domain records: 1 drill, 6 drill events, 1 envelope, 3 envelope
+  mechanisms, 1 engine run, 4 engine decisions, 1 MRV report, 1 evidence bundle,
+  5 audit log entries.
+- **1,439 telemetry readings** of `facility.active_power_kw`, 1-minute
+  resolution, all `GOOD`, spanning 2026-07-20T11:58Z .. 2026-07-21T11:56Z.
+
+Phase A's exit criterion — "empty database migrates cleanly, owner can sign in,
+seeded facility appears" — is therefore satisfied. The risks below about running
+migrations against production remain relevant for *future* destructive work.
+
+**Standing constraint:** this is a populated, live database. Per spec §25, no
+destructive test runs against it. Read-only validation is permitted; integration
+tests that assert append-only triggers by attempting mutations belong on the
+local Docker Postgres (`docker-compose.local.yml`, host port 5433 — Docker
+confirmed available).
 
 ### Completed acceptance criteria
 
@@ -307,13 +333,67 @@ boundary test is worse than none. The scanner now strips comments first.
 - [ ] LLM explanation layer (8).
 - [ ] Landing-page AI section (Predict / Plan / Protect / Learn).
 
-### Honest limitation
+### Validation against real telemetry (2026-07-21)
 
-Everything above is fixture-driven and unit-tested. **None of it has been
-exercised against a real database or real facility telemetry**, because Phase A
-remains blocked on connectivity (see below). The seasonal baseline has never seen
-a real load curve. No claim is being made that this is validated against
-production data — only that its logic is correct and its boundaries hold.
+`scripts/validate-against-real-telemetry.ts` runs the full chain — features ->
+forecast -> clamp, plus a holdout backtest — against the live facility. It issues
+**SELECTs only** and writes nothing.
+
+Result on 1,439 real readings (287 five-minute intervals, 100% complete):
+
+    load range      1107.1 .. 1602.6 kW
+    envelope        DRAFT, 600.000 kW, confidence 0.25 (SUM_OF_MECHANISM_CAPS)
+    forecast        ~700 kW  =>  claim 600.000 kW  (ENVELOPE binding)
+
+Three things this established:
+
+1. **The clamp fired on real data.** The forecaster's ~700 kW headroom estimate
+   exceeded the envelope's 600 kW ceiling and was clamped down to it, with
+   confidence subordinated to the envelope's grade. The headline hazard occurred
+   naturally on the first real dataset, and the boundary held.
+2. **The backtest refused all 5 holdout cases** rather than guessing — correctly.
+   Telemetry starts at noon, so the 09:00-12:00 buckets have no prior history.
+   A model that answered anyway would have been fabricating.
+3. **A real defect was found and fixed** (below).
+
+### Defect found by real data: unearned interval precision
+
+The baseline reported a prediction interval of **+/-1.4 kW on a load that swings
+~500 kW**, with confidence 0.249.
+
+Cause: the window is 23h55m, so nearly every 30-minute seasonal bucket is
+populated by a single day. `n=6` was not six observations of "Tuesday 09:00"
+across weeks — it was six consecutive 5-minute intervals inside one half hour.
+The interval measured within-bucket noise and understated real uncertainty by a
+wide margin. Fixture tests could not catch this because every fixture spanned
+multiple days by construction.
+
+Fix: pools now track **distinct contributing days**. `ForecastResult` carries
+`distinctDaysUsed` and `intervalUnderpowered`, a `FORECAST_INTERVAL_UNDERPOWERED`
+warning accompanies any single-day estimate, and confidence gained a
+multiplicative day-diversity factor saturating at 7 days.
+
+Effect on the same real data: **confidence 0.249 -> 0.036**, a 7x reduction. The
+interval is still narrow — that is inherent to one day of history — but the model
+no longer claims precision it has not earned.
+
+This also invalidated an end-to-end assertion expecting >0.9 confidence on a
+7-day flat series. That expectation *was* the overconfidence; it now asserts the
+day-diversity-capped range (5 weekdays of 7).
+
+### Honest limitations that remain
+
+- The facility has **~24 hours of telemetry**. The seasonal model is designed to
+  learn day-to-day and weekday/weekend structure and there is not yet enough
+  history for it to do so. Every bucket is single-day, so every forecast is
+  currently flagged `intervalUnderpowered`.
+- **No weekend data exists at all** (2026-07-20/21 are Monday/Tuesday), so
+  weekend forecasts refuse outright.
+- **No accuracy figure has been measured** against real data — the backtest
+  scored zero cases because it correctly refused all of them. MAE, bias and
+  coverage against this facility remain unknown.
+- All mechanisms are `DECLARED` provenance with no completed tests, so the
+  envelope caps confidence at 0.25 regardless of what the forecaster does.
 
 ---
 

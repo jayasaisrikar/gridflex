@@ -20,6 +20,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.20.1",
+    "@types/pg": "^8.20.0",
+    "pg": "^8.22.0",
     "vitest": "^3.0.5"
   },
   "main": "./dist/index.js",
