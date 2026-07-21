@@ -5,3 +5,5 @@ export * from './forecast/clamp.js';
 export * from './backtest/index.js';
 export * from './plan/index.js';
 export * from './risk/index.js';
+export * from './agent/tools.js';
+export * from './agent/orchestrator.js';
