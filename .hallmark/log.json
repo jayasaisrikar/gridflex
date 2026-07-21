@@ -1,6 +1,28 @@
 [
   {
     "date": "2026-07-21",
+    "macrostructure": "Feature Stack",
+    "theme": "custom",
+    "theme_axes": "dark / geometric-sans / chromatic-mint",
+    "vibe": "infrastructure-grade, nocturnal, neon-mint, precise",
+    "nav": "N10 floating-on-scroll morph",
+    "footer": "Ft4 dense technical colophon",
+    "enrichment": "E5 custom interactive model · tier-D WebGL",
+    "brief": "GridFlex premium infrastructure landing page"
+  },
+  {
+    "date": "2026-07-21",
+    "macrostructure": "Marquee Hero",
+    "theme": "Lumen",
+    "drop": "night",
+    "theme_axes": "dark / classical-serif-lowercase / warm",
+    "nav": "N5 floating pill",
+    "footer": "Ft1 mast-headed",
+    "enrichment": "E5 custom illustration centerpiece · tier-A CSS 3D assurance field",
+    "brief": "GridFlex landing page — atmospheric 3D assurance field"
+  },
+  {
+    "date": "2026-07-21",
     "macrostructure": "Manifesto",
     "theme": "custom",
     "theme_axes": "light / roman-serif / cool",

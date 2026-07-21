@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { Geist, JetBrains_Mono, Newsreader } from 'next/font/google';
+import { Geist, JetBrains_Mono, Space_Grotesk } from 'next/font/google';
 import './globals.css';
 
 /**
@@ -21,12 +21,12 @@ const jetbrainsMono = JetBrains_Mono({
   display: 'swap',
 });
 
-/** Marketing display face only — the console never loads it. */
-const newsreader = Newsreader({
+/** Marketing display face: a technical grotesk with enough character for large type. */
+const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
-  weight: ['400', '500', '600'],
+  weight: ['400', '500', '600', '700'],
   style: ['normal'],
-  variable: '--font-newsreader',
+  variable: '--font-space-grotesk',
   display: 'swap',
 });
 
@@ -40,7 +40,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="en"
-      className={`${geist.variable} ${jetbrainsMono.variable} ${newsreader.variable}`}
+      className={`${geist.variable} ${jetbrainsMono.variable} ${spaceGrotesk.variable}`}
     >
       <body>{children}</body>
     </html>

@@ -110,6 +110,85 @@
   /* ---- Layout ---- */
   --rail-width: 13.5rem;
   --measure: 68ch;
+
+  /* ---- Marketing · custom “Grid Signal” ---- */
+  --mk-color-paper: oklch(10.5% 0.012 165);
+  --mk-color-paper-2: oklch(14.5% 0.014 165);
+  --mk-color-paper-3: oklch(18.5% 0.016 165);
+  --mk-color-paper-4: oklch(23% 0.018 165);
+  --mk-color-ink: oklch(96% 0.008 165);
+  --mk-color-ink-2: oklch(82% 0.01 165);
+  --mk-color-muted: oklch(68% 0.012 165);
+  --mk-color-faint: oklch(63% 0.014 165);
+  --mk-color-rule: oklch(30% 0.018 165);
+  --mk-color-rule-2: oklch(39% 0.02 165);
+  --mk-color-accent: oklch(84% 0.18 155);
+  --mk-color-accent-deep: oklch(68% 0.16 155);
+  --mk-color-accent-ink: oklch(11% 0.012 165);
+  --mk-color-focus: oklch(90% 0.19 155);
+  --mk-color-modeled: oklch(72% 0.13 225);
+  --mk-color-declared: oklch(78% 0.14 80);
+  --mk-color-tested: oklch(84% 0.18 155);
+  --mk-color-violation: oklch(67% 0.18 25);
+  --mk-color-grid: oklch(84% 0.18 155 / 0.075);
+  --mk-color-grid-faint: oklch(96% 0.008 165 / 0.035);
+  --mk-color-glass: oklch(18.5% 0.016 165 / 0.72);
+  --mk-color-glass-strong: oklch(23% 0.018 165 / 0.86);
+  --mk-color-glow: oklch(84% 0.18 155 / 0.28);
+  --mk-color-glow-soft: oklch(84% 0.18 155 / 0.08);
+  --mk-color-shadow: oklch(3% 0.008 165 / 0.72);
+  --mk-color-transparent: transparent;
+
+  --mk-font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --mk-font-body: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --mk-font-label: var(--font-jetbrains), ui-monospace, monospace;
+
+  --mk-text-label: 0.75rem;
+  --mk-text-sm: 0.875rem;
+  --mk-text-base: 1rem;
+  --mk-text-lg: 1.25rem;
+  --mk-text-xl: 1.5625rem;
+  --mk-text-2xl: 2.4414rem;
+  --mk-text-3xl: 3.0518rem;
+  --mk-text-display-s: clamp(2.85rem, 5.1vw, 5.25rem);
+  --mk-text-display: clamp(3.25rem, 6vw, 5.5rem);
+
+  --mk-space-3xs: 0.125rem;
+  --mk-space-2xs: 0.25rem;
+  --mk-space-xs: 0.5rem;
+  --mk-space-sm: 0.75rem;
+  --mk-space-md: 1rem;
+  --mk-space-lg: 1.5rem;
+  --mk-space-xl: 2.5rem;
+  --mk-space-2xl: 4rem;
+  --mk-space-3xl: 6rem;
+  --mk-space-4xl: 9rem;
+  --mk-space-5xl: 12rem;
+
+  --mk-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --mk-ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --mk-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --mk-dur-micro: 110ms;
+  --mk-dur-short: 200ms;
+  --mk-dur-mid: 520ms;
+  --mk-dur-long: 720ms;
+  --mk-dur-signal: 4200ms;
+
+  --mk-radius-xs: 2px;
+  --mk-radius-sm: 4px;
+  --mk-radius-md: 10px;
+  --mk-radius-nav: 20px;
+  --mk-rule-hair: 1px;
+  --mk-rule-strong: 2px;
+  --mk-z-base: 1;
+  --mk-z-raised: 10;
+  --mk-z-sticky: 200;
+  --mk-z-nav: 220;
+  --mk-z-modal: 400;
+  --mk-shadow-nav: 0 24px 72px -34px var(--mk-color-shadow);
+  --mk-page-gutter: clamp(1rem, 3.8vw, 4.5rem);
+  --mk-page-max: 100rem;
+  --mk-banner-height: 4.5rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
