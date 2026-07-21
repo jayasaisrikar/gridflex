@@ -94,6 +94,22 @@ export interface Facility {
   cooling_reserve_kw: string | null;
 }
 
+export interface Constraints {
+  id: string;
+  version: number;
+  effective_from: string;
+  effective_to: string | null;
+  minimum_safe_load_kw: string | null;
+  maximum_curtailment_kw: string | null;
+  maximum_ramp_kw_per_min: string | null;
+  maximum_duration_min: number | null;
+  minimum_recovery_min: number | null;
+  maximum_rebound_kw: string | null;
+  thermal_limit_c: string | null;
+  excluded_workloads: unknown;
+  source_note: string | null;
+}
+
 export interface Mechanism {
   id: string;
   code: string;
@@ -103,6 +119,8 @@ export interface Mechanism {
   declared_reducible_kw: string | null;
   ramp_rate_kw_per_min: string | null;
   maximum_duration_min: number | null;
+  rebound_window_min: number | null;
+  minimum_load_kw: string | null;
 }
 
 export interface Envelope {
@@ -192,7 +210,7 @@ export interface MrvReport {
 export const api = {
   facilities: () => apiGet<{ facilities: Facility[] }>('/facilities'),
   facility: (id: string) =>
-    apiGet<{ facility: Facility; constraints: unknown; mechanisms: Mechanism[] }>(
+    apiGet<{ facility: Facility; constraints: Constraints | null; mechanisms: Mechanism[] }>(
       `/facilities/${id}`,
     ),
   currentEnvelope: (id: string) =>

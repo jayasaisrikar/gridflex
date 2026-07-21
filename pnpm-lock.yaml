@@ -180,6 +180,9 @@ importers:
       '@gridflex/engine':
         specifier: workspace:*
         version: link:../engine
+      '@gridflex/forecast':
+        specifier: workspace:*
+        version: link:../forecast
       drizzle-orm:
         specifier: ^0.38.3
         version: 0.38.4(@types/pg@8.20.0)(@types/react@19.2.17)(pg@8.22.0)(react@19.2.7)
