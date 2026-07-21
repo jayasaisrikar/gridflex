@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@gridflex/config": "workspace:*",
+    "@gridflex/engine": "workspace:*",
     "drizzle-orm": "^0.38.3",
     "pg": "^8.13.1"
   },

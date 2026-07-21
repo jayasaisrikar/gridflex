@@ -15,14 +15,15 @@
     "test:e2e": "pnpm --filter @gridflex/web test:e2e",
     "db:generate": "pnpm --filter @gridflex/db drizzle-kit generate",
     "db:migrate": "pnpm --filter @gridflex/db drizzle-kit migrate",
-    "db:check": "pnpm --filter @gridflex/db tsx scripts/check-schema.ts",
-    "db:seed": "pnpm --filter @gridflex/db tsx scripts/seed.ts",
+    "db:check": "pnpm --filter @gridflex/db exec tsx scripts/check-schema.ts",
+    "db:seed": "pnpm --filter @gridflex/db exec tsx scripts/seed.ts",
     "local:db:up": "docker compose -f docker-compose.local.yml up -d postgres",
     "local:db:down": "docker compose -f docker-compose.local.yml down",
     "build:packages": "pnpm -r --filter './packages/*' build",
     "predev": "pnpm build:packages",
     "dev:api": "pnpm --filter @gridflex/api dev",
-    "dev:web": "pnpm --filter @gridflex/web dev"
+    "dev:web": "pnpm --filter @gridflex/web dev",
+    "db:seed:sim": "pnpm --filter @gridflex/db exec tsx scripts/seed-simulation.ts"
   },
   "devDependencies": {
     "typescript": "^5.7.3",
