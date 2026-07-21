@@ -87,13 +87,35 @@ describe('trust boundary', () => {
     }
   });
 
-  it('only the clamp module is permitted to produce a user-facing claim', () => {
+  it('only the clamp module is permitted to PRODUCE a user-facing claim', () => {
     // `claimed*` fields are the display contract. If another module started
     // emitting them, the clamp could be bypassed.
+    //
+    // Reading a clamped claim is not the hazard and must stay allowed — the
+    // explainer, the planner's caller and the UI all legitimately consume one.
+    // The hazard is a second module ASSIGNING these fields, so the check targets
+    // declaration (`claimedConfidence:` / `= `) and deliberately excludes
+    // property access (`claim.claimedConfidence`).
+    const producesClaim = /(?<!\.)\b(claimedReducibleKw|claimedReducibleMkw|claimedConfidence)\s*[:=][^=]/;
+
     for (const file of sourceFiles(FORECAST_SRC)) {
       if (file.endsWith(join('forecast', 'clamp.ts'))) continue;
-      const source = readFileSync(file, 'utf8');
-      expect(source, `${file} emits a claimed* field`).not.toMatch(/claimedReducible|claimedConfidence/);
+      const source = stripComments(readFileSync(file, 'utf8'));
+      expect(source, `${file} produces a claimed* field`).not.toMatch(producesClaim);
     }
+  });
+});
+
+describe('trust boundary — the claim-production rule is itself correct', () => {
+  it('catches a module that assigns a claimed* field', () => {
+    const producesClaim = /(?<!\.)\b(claimedReducibleKw|claimedReducibleMkw|claimedConfidence)\s*[:=][^=]/;
+    expect('return { claimedReducibleKw: "999.000" };').toMatch(producesClaim);
+    expect('const claimedConfidence = 0.99;').toMatch(producesClaim);
+  });
+
+  it('permits a module that merely reads one', () => {
+    const producesClaim = /(?<!\.)\b(claimedReducibleKw|claimedReducibleMkw|claimedConfidence)\s*[:=][^=]/;
+    expect('const kw = claim.claimedReducibleKw;').not.toMatch(producesClaim);
+    expect('if (claim.claimedConfidence < 0.5) {}').not.toMatch(producesClaim);
   });
 });

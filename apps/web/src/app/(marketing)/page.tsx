@@ -53,6 +53,40 @@ const solutionSteps = [
   },
 ] as const;
 
+const agentCapabilities = [
+  {
+    label: 'Predict',
+    title: 'Forecast safe reducible capacity, duration, and rebound.',
+    copy: 'Seasonal load models estimate how much the facility can give back, and state how much history that estimate actually rests on.',
+    detail: 'Refuses rather than guesses',
+  },
+  {
+    label: 'Plan',
+    title: 'Choose which workloads and energy assets respond.',
+    copy: 'The reduction is allocated across mechanisms least-disruptive first, respecting ramp rates, minimum load, and how long each asset can sustain.',
+    detail: 'Deferrable compute before cooling',
+  },
+  {
+    label: 'Protect',
+    title: 'Check thermal, SLA, and operational limits before action.',
+    copy: 'Deterministic constraint checks run before any plan reaches an operator. Where a reading is missing, the plan is blocked rather than assumed safe.',
+    detail: 'Unknown is not treated as fine',
+  },
+  {
+    label: 'Learn',
+    title: 'Improve facility-specific predictions after every drill.',
+    copy: 'Predicted and delivered are compared after each event. Corrections may only make future forecasts more conservative, never more optimistic.',
+    detail: 'Anomalous drills are excluded',
+  },
+] as const;
+
+const agentBoundaries = [
+  ['Calculates the certified result', 'The deterministic MRV engine does, outside the model path.'],
+  ['Invents a number', 'Every figure in an explanation is checked against verified facts.'],
+  ['Raises a claim', 'Model output is capped by the assurance envelope, never above it.'],
+  ['Overrides a stop', 'Emergency stop and safety limits sit in code the model cannot reach.'],
+] as const;
+
 const trustStages = [
   ['01', 'Read-only telemetry', 'Observe facility state without writing setpoints.', true],
   ['02', 'Shadow recommendations', 'Compare a safe operating recommendation with real outcomes.', true],
@@ -87,17 +121,6 @@ const integrations = [
   'Compute schedulers',
   'Demand-response aggregators',
   'Utility export formats',
-] as const;
-
-const platformFeatures = [
-  ['TypeScript platform', 'Shared contracts across interface, engine, and API.'],
-  ['PostgreSQL + time-series telemetry', 'Append-only readings with explicit quality flags.'],
-  ['Secure connector framework', 'Read-only first, scoped credentials, observable health.'],
-  ['Versioned evidence schemas', 'Old records remain independently checkable.'],
-  ['Deterministic MRV', 'Exact integer energy arithmetic, no invented intervals.'],
-  ['Exportable JSON and PDF Passports', 'Structured records for machines and engineering review.'],
-  ['API-first architecture', 'Facility data and counterparties stay decoupled.'],
-  ['Coolify-compatible deployment', 'A practical path to private infrastructure.'],
 ] as const;
 
 export default function LandingPage() {
@@ -198,6 +221,44 @@ export default function LandingPage() {
               </li>
             ))}
           </ol>
+        </section>
+
+        <section className="mk-agent mk-section" id="ai" aria-labelledby="agent-title">
+          <header className="mk-section-head" data-reveal>
+            <h2 id="agent-title">An AI agent that understands both compute and power.</h2>
+            <p>
+              GridFlex combines facility telemetry, workload schedules, cooling conditions, and
+              historical drills to predict available flexibility, generate safe reduction plans,
+              and verify what was actually delivered.
+            </p>
+          </header>
+
+          <div className="mk-agent__grid" data-reveal>
+            {agentCapabilities.map((capability, index) => (
+              <article key={capability.label} style={{ '--case-index': index } as CSSProperties}>
+                <span className="mk-agent__label">{capability.label}</span>
+                <h3>{capability.title}</h3>
+                <p>{capability.copy}</p>
+                <span className="mk-agent__detail">{capability.detail}</span>
+              </article>
+            ))}
+          </div>
+
+          <div className="mk-agent__boundary" data-reveal>
+            <h3>What the agent is not permitted to do</h3>
+            <dl>
+              {agentBoundaries.map(([never, because]) => (
+                <div key={never}>
+                  <dt>{never}</dt>
+                  <dd>{because}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="mk-agent__note">
+              The decision layer proposes. The deterministic engine decides what may be claimed,
+              and the Passport records what was proved.
+            </p>
+          </div>
         </section>
 
         <section className="mk-passport mk-section" id="passport" aria-labelledby="passport-title">
@@ -327,29 +388,6 @@ export default function LandingPage() {
             </ul>
           </div>
           <ArchitectureDiagram />
-        </section>
-
-        <section className="mk-platform mk-section" id="about" aria-labelledby="platform-title">
-          <header className="mk-platform__intro" data-reveal>
-            <h2 id="platform-title">Built for operators. Legible to engineers.</h2>
-            <p>
-              GridFlex continuously collects operational data, calculates how much load a
-              facility could safely reduce, validates that estimate through controlled tests,
-              and packages the result into a trusted digital record.
-            </p>
-            <a className="mk-text-link" href="#architecture">
-              Read the platform architecture <span aria-hidden="true">↗</span>
-            </a>
-          </header>
-          <div className="mk-platform__spec" data-reveal>
-            {platformFeatures.map(([title, copy], index) => (
-              <article key={title}>
-                <span>{String(index + 1).padStart(2, '0')}</span>
-                <h3>{title}</h3>
-                <p>{copy}</p>
-              </article>
-            ))}
-          </div>
         </section>
 
         <section className="mk-final" id="pilot" aria-labelledby="final-title">

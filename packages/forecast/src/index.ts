@@ -9,3 +9,4 @@ export * from './agent/tools.js';
 export * from './agent/orchestrator.js';
 export * from './anomaly/index.js';
 export * from './learning/index.js';
+export * from './explain/index.js';

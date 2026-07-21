@@ -24,6 +24,7 @@ import { computeEnvelope } from '@gridflex/engine';
 import { planReduction, type MechanismType } from '../src/plan/index.js';
 import { assessRisk } from '../src/risk/index.js';
 import { confidencePenalty, detectTelemetryAnomalies } from '../src/anomaly/index.js';
+import { assembleExplanationContext, explainVerified } from '../src/explain/index.js';
 
 const INTERVAL_SECONDS = 300;
 const METRIC = 'facility.active_power_kw';
@@ -244,6 +245,14 @@ async function main(): Promise<void> {
     console.log(`  RISK          ${risk.level} — ${risk.summary}`);
     for (const factor of risk.factors) {
       console.log(`    [${factor.severity}] ${factor.code}`);
+    }
+
+    const explanation = await explainVerified(
+      assembleExplanationContext({ claim: chainClaim, plan, risk }),
+    );
+    console.log(`  EXPLANATION (${explanation.source}, grounded=${explanation.grounded}):`);
+    for (const line of explanation.text.match(/.{1,76}(\s|$)/g) ?? []) {
+      console.log(`    ${line.trim()}`);
     }
   }
 

@@ -306,9 +306,10 @@ emits a user-facing `claimed*` field.
 | `agent` | 45 |
 | `anomaly` | 39 |
 | `learning` | 24 |
+| `explain` | 27 |
 | `end-to-end` | 5 |
-| `trust-boundary` | 4 |
-| **Total** | **248** |
+| `trust-boundary` | 6 |
+| **Total** | **277** |
 
 Plus **10 integration tests** against a real Postgres, excluded from the default
 run and invoked with `pnpm test:integration` after `pnpm local:db:up`. They run
@@ -316,8 +317,10 @@ against local Docker only — `assertLocal` refuses any non-localhost host, sinc
 they write drills and spec §25 forbids that against the live database. Each runs
 in a transaction that is rolled back.
 
-Monorepo total is now **381 passing** (engine 110, contracts 23, forecast 248),
-plus 10 integration, up from 133. Typecheck clean under full strict mode across all five packages.
+Monorepo total is now **410 passing** (engine 110, contracts 23, forecast 277),
+plus 10 integration, up from 133.
+
+**All eight AI sub-projects are implemented.** Typecheck clean under full strict mode across all five packages.
 
 The clamp suite includes an exhaustive grid over 7 forecast values x 6 envelope
 values x 7 model confidences x 7 envelope confidences (2,058 combinations)
