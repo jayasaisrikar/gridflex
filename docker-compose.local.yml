@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gridflex-postgres-local
+    environment:
+      POSTGRES_USER: gridflex
+      POSTGRES_PASSWORD: gridflex
+      POSTGRES_DB: gridflex
+    ports:
+      # 5433 on the host to avoid colliding with a native Postgres on 5432.
+      - '5433:5432'
+    volumes:
+      - gridflex-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U gridflex -d gridflex']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  gridflex-pgdata:
