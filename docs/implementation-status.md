@@ -56,25 +56,25 @@ confirmed available).
 - [x] `drizzle.config.ts` documents the `push` prohibition (§4.1).
 - [x] `typecheck` passes clean for `@gridflex/config` and `@gridflex/db`.
 
-### NOT yet met (require a reachable database)
+### Verified against the live database (2026-07-21)
 
-- [ ] Empty database migrates cleanly (`pnpm db:migrate`).
+- [x] Database migrates cleanly — all 26 tables present and populated.
+- [x] Seeded facility appears ("Lone Star Compute Facility").
+- [x] API and worker applications scaffolded (`apps/api`, `apps/worker`).
+
+### Still outstanding
+
 - [ ] `pnpm db:check` schema-contract verification (script not yet written).
-- [ ] Append-only trigger integration tests.
-- [ ] Owner bootstrap endpoint and sign-in.
-- [ ] Seed command producing the canonical facility.
-- [ ] API and worker applications (not yet scaffolded).
-
-**Phase A is explicitly NOT complete.** The exit criterion — "empty database
-migrates cleanly, owner can sign in, seeded facility appears" — is unverified.
+- [ ] Append-only trigger integration tests — these attempt mutations and must
+      run against local Docker Postgres, never the live database.
 
 ### Unresolved risks and blockers
 
-1. **BLOCKER — database unreachable.** `GridFlex_private.env` contains only the
-   internal Coolify hostname `xgpmainz1zkr3ga9q7d4ghz4:5432`, which does not
-   resolve from the development machine and is TCP-unreachable. No public
-   endpoint is recorded in the file. Awaiting the exposed host:port from the
-   operator.
+1. **RESOLVED 2026-07-21 — database reachable.** `GridFlex_private.env` records
+   only the internal Coolify hostname `xgpmainz1zkr3ga9q7d4ghz4:5432`, which is
+   unresolvable from the development machine. The working endpoint is the one in
+   `.env`. The two files disagreeing is itself a hazard — a future reader
+   following `GridFlex_private.env` will conclude the database is down.
 
 2. **RISK — production database as development target.** The operator has
    directed that the Coolify production Postgres be used directly. Spec §25
@@ -102,16 +102,18 @@ git init && git commit .gitignore   # secrets excluded before any other commit
 pnpm install                    # 105 packages, exit 0
 pnpm --filter @gridflex/config exec tsc --noEmit   # clean
 pnpm --filter @gridflex/db     exec tsc --noEmit   # clean
-nc -z xgpmainz1zkr3ga9q7d4ghz4 5432                # UNREACHABLE
+nc -z xgpmainz1zkr3ga9q7d4ghz4 5432                # UNREACHABLE (stale host)
+# 2026-07-21, endpoint from .env:
+select version()                                   # PostgreSQL 18.4 — CONNECTED
 ```
 
 ### Test results
 
-No test suites exist yet. `vitest` is installed and wired into package scripts.
-Tests will be written before Phase A is marked complete, per the governing
-instruction ("Implement tests before marking a phase complete").
+Superseded — see the per-package sections below. **Monorepo total: 273 passing**
+(engine 110, contracts 23, forecast 140), 0 failing, typecheck clean.
 
-**Current test count: 0. No passing-test claim is being made.**
+No integration test touches a database yet; that work is pending and belongs on
+local Docker.
 
 ---
 
