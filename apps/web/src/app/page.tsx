@@ -1,92 +1,89 @@
 import Link from 'next/link';
 import { Chip } from '@/components/chip';
-import { DRILL, ENVELOPE, FACILITY, MECHANISMS } from '@/lib/facility';
+import { api } from '@/lib/api';
+import { ageFrom, formatKw, requireFacility, whToKwh } from '@/lib/load';
+
+export const dynamic = 'force-dynamic';
 
 /**
- * Overview — spec §16.2.
+ * Overview — spec §16.2, now reading live API data.
  *
- * Required: current load and freshness · tested/modeled/declared reducible kW ·
- * Passport status and staleness · telemetry completeness · connector health ·
- * next safe action.
- *
- * The design decision that matters here: the three reducible-kW figures are
- * shown SEPARATELY by provenance rather than summed into one headline number.
- * A single "600 kW available" would be the most useful-looking and least honest
- * thing on the page — it would blend a tested figure with an operator's guess.
+ * The reducible-capacity figures are split by provenance rather than summed.
+ * A single "600 kW available" headline would blend a tested measurement with an
+ * operator's assertion — the most useful-looking and least honest element the
+ * page could carry.
  */
-export default function OverviewPage() {
-  const declaredTotal = MECHANISMS.reduce(
-    (sum, mechanism) => sum + Number(mechanism.declaredKw),
-    0,
-  );
+export default async function OverviewPage() {
+  const facility = await requireFacility();
+
+  const [{ envelope, mechanisms }, quality, { drills }] = await Promise.all([
+    api.currentEnvelope(facility.id),
+    api.telemetryQuality(facility.id),
+    api.drills(facility.id),
+  ]);
+
+  // Group envelope capacity by the evidence that backs it.
+  const byProvenance = { TESTED: 0, MODELED: 0, DECLARED: 0 };
+  for (const mechanism of mechanisms) {
+    byProvenance[mechanism.provenance] += Number(mechanism.reducible_kw);
+  }
+
+  const latestDrill = drills[0] ?? null;
+  const mrv = latestDrill ? await api.drill(latestDrill.id).then((d) => d.mrv) : null;
+  const anySimulated = drills.some((drill) => drill.simulation_mode);
 
   return (
     <main className="content stack">
       <header className="pagehead">
         <div className="pagehead__row">
           <div>
-            <h1>{FACILITY.name}</h1>
+            <h1>{facility.name}</h1>
             <p className="pagehead__sub">
-              {FACILITY.region} · {FACILITY.market} · {FACILITY.timezone}
+              {facility.region} · {facility.market} · {facility.timezone}
             </p>
           </div>
           <div className="row">
-            <Chip kind="simulated">Simulator connector</Chip>
-            <Chip kind="tested">Telemetry live</Chip>
+            {anySimulated ? <Chip kind="simulated">Simulated</Chip> : null}
+            {quality.is_stale ? (
+              <Chip kind="violation">Telemetry stale</Chip>
+            ) : (
+              <Chip kind="tested">Telemetry fresh</Chip>
+            )}
           </div>
         </div>
       </header>
 
-      {/* ---- Reducible capacity, split by provenance ---- */}
+      {/* ---- Capacity by evidence class ---- */}
       <section className="stack" aria-labelledby="capacity-heading">
         <h2 id="capacity-heading" className="panel__title">
           Reducible capacity by evidence class
         </h2>
-
         <div className="grid-metrics">
-          <div className="panel">
-            <span className="metric__label">Tested</span>
-            <div className="metric__value">
-              0<span className="metric__unit">kW</span>
-            </div>
-            <div className="metric__foot">
-              <Chip kind="declared">No verified drill</Chip>
-            </div>
-            <p className="sheet__note" style={{ marginTop: 'var(--space-sm)' }}>
-              No mechanism has been proven by a completed drill yet. Until one is,
-              nothing here can be claimed as tested.
-            </p>
-          </div>
-
-          <div className="panel">
-            <span className="metric__label">Modeled</span>
-            <div className="metric__value">
-              0<span className="metric__unit">kW</span>
-            </div>
-            <div className="metric__foot">
-              <Chip kind="declared">Insufficient history</Chip>
-            </div>
-            <p className="sheet__note" style={{ marginTop: 'var(--space-sm)' }}>
-              Telemetry has not yet covered enough low-load intervals to model an
-              observed cap independently of the declared figure.
-            </p>
-          </div>
-
-          <div className="panel">
-            <span className="metric__label">Declared</span>
-            <div className="metric__value">
-              {declaredTotal.toFixed(0)}
-              <span className="metric__unit">kW</span>
-            </div>
-            <div className="metric__foot">
-              <Chip kind="declared">Operator assertion</Chip>
-            </div>
-            <p className="sheet__note" style={{ marginTop: 'var(--space-sm)' }}>
-              Sum of three enabled mechanisms as configured. Capped to{' '}
-              <span className="tnum">{ENVELOPE.totalReducibleKw}</span> kW by the
-              maximum-curtailment constraint.
-            </p>
-          </div>
+          <ProvenancePanel
+            label="Tested"
+            value={byProvenance.TESTED}
+            kind={byProvenance.TESTED > 0 ? 'tested' : 'declared'}
+            badge={byProvenance.TESTED > 0 ? 'Verified by drill' : 'No verified drill'}
+            note={
+              byProvenance.TESTED > 0
+                ? 'Proven by a completed drill with an MRV report.'
+                : 'No mechanism has been proven by a completed drill. Until one is, nothing here can be claimed as tested.'
+            }
+          />
+          <ProvenancePanel
+            label="Modeled"
+            value={byProvenance.MODELED}
+            kind="declared"
+            badge={byProvenance.MODELED > 0 ? 'From telemetry' : 'Insufficient history'}
+            note="Derived from observed low-load intervals, independent of the declared figure."
+          />
+          <ProvenancePanel
+            label="Declared"
+            value={byProvenance.DECLARED}
+            kind="declared"
+            badge="Operator assertion"
+            note="Configured by an operator. Not independently verified."
+          />
         </div>
       </section>
 
@@ -100,160 +97,198 @@ export default function OverviewPage() {
       >
         <div className="panel">
           <div className="panel__head">
-            <span className="panel__title">Current envelope · v{ENVELOPE.version}</span>
-            <Chip kind="declared">Confidence {ENVELOPE.confidenceScore.toFixed(2)}</Chip>
+            <span className="panel__title">
+              Current envelope {envelope ? `· v${envelope.version}` : ''}
+            </span>
+            {envelope ? (
+              <Chip kind={envelope.confidence_score >= 0.6 ? 'tested' : 'declared'}>
+                Confidence {envelope.confidence_score.toFixed(2)}
+              </Chip>
+            ) : null}
           </div>
 
-          <div className="metric metric--readout">
-            <div className="metric__value">
-              {ENVELOPE.totalReducibleKw}
-              <span className="metric__unit">kW</span>
-            </div>
-          </div>
-
-          <div className="sheet-wrap" style={{ marginTop: 'var(--space-md)' }}>
-            <table className="sheet tnum">
-              <tbody>
-                <tr>
-                  <th scope="row">Binding constraint</th>
-                  <td className="num">Maximum curtailment</td>
-                </tr>
-                <tr>
-                  <th scope="row">Sum of mechanism caps</th>
-                  <td className="num">{ENVELOPE.sumOfMechanismCapsKw} kW</td>
-                </tr>
-                <tr>
-                  <th scope="row">Physical headroom</th>
-                  <td className="num">{ENVELOPE.physicalHeadroomKw} kW</td>
-                </tr>
-                <tr>
-                  <th scope="row">Aggregate ramp</th>
-                  <td className="num">{ENVELOPE.aggregateRampKwPerMin} kW/min</td>
-                </tr>
-                <tr>
-                  <th scope="row">Sustainable duration</th>
-                  <td className="num">{ENVELOPE.sustainableDurationMin} min</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <p className="sheet__note" style={{ marginTop: 'var(--space-md)' }}>
-            Confidence is {ENVELOPE.confidenceScore.toFixed(2)} because every
-            mechanism is DECLARED. The engine takes the weakest mechanism&rsquo;s
-            provenance, not the average.{' '}
-            <Link href="/envelope">See the full calculation →</Link>
-          </p>
+          {envelope ? (
+            <>
+              <div className="metric metric--readout">
+                <div className="metric__value">
+                  {formatKw(envelope.total_reducible_kw)}
+                  <span className="metric__unit">kW</span>
+                </div>
+              </div>
+              <div className="sheet-wrap" style={{ marginTop: 'var(--space-md)' }}>
+                <table className="sheet tnum">
+                  <tbody>
+                    <tr>
+                      <th scope="row">Binding constraint</th>
+                      <td className="num">
+                        {String(envelope.summary?.binding_constraint ?? '—')
+                          .replace(/_/g, ' ')
+                          .toLowerCase()}
+                      </td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Aggregate ramp</th>
+                      <td className="num">{envelope.aggregate_ramp_kw_per_min} kW/min</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Sustainable duration</th>
+                      <td className="num">{envelope.sustainable_duration_min} min</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Response time</th>
+                      <td className="num">{envelope.response_time_seconds} s</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Methodology</th>
+                      <td className="num">{envelope.methodology_version}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p className="sheet__note" style={{ marginTop: 'var(--space-md)' }}>
+                <Link href="/envelope">See the full calculation →</Link>
+              </p>
+            </>
+          ) : (
+            <>
+              <p>No envelope has been computed yet.</p>
+              <p className="sheet__note" style={{ marginTop: 'var(--space-sm)' }}>
+                Recompute one from the Envelope page to establish a current
+                flexibility position.
+              </p>
+              <div className="row" style={{ marginTop: 'var(--space-md)' }}>
+                <Link className="btn btn--primary" href="/envelope">
+                  Go to Envelope →
+                </Link>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="panel">
           <div className="panel__head">
-            <span className="panel__title">Data quality</span>
-            <Chip kind="tested">Above threshold</Chip>
+            <span className="panel__title">Data quality · last 24h</span>
+            {quality.meets_drill_threshold ? (
+              <Chip kind="tested">Above threshold</Chip>
+            ) : (
+              <Chip kind="violation">Below threshold</Chip>
+            )}
           </div>
 
           <div className="grid-metrics">
             <div>
               <span className="metric__label">Completeness</span>
               <div className="metric__value" style={{ fontSize: 'var(--text-2xl)' }}>
-                {(ENVELOPE.telemetryCompleteness * 100).toFixed(1)}
+                {(quality.completeness * 100).toFixed(1)}
                 <span className="metric__unit">%</span>
               </div>
               <div className="metric__foot">90% required to arm</div>
             </div>
             <div>
-              <span className="metric__label">Max gap</span>
+              <span className="metric__label">Last reading</span>
               <div className="metric__value" style={{ fontSize: 'var(--text-2xl)' }}>
-                0<span className="metric__unit">intervals</span>
+                {ageFrom(quality.last_reading_at)}
               </div>
-              <div className="metric__foot">2 consecutive blocks certification</div>
+              <div className="metric__foot">
+                {quality.observed_intervals} / {quality.expected_intervals} intervals
+              </div>
             </div>
           </div>
 
-          <div className="sheet-wrap" style={{ marginTop: 'var(--space-lg)' }}>
-            <table className="sheet">
-              <thead>
-                <tr>
-                  <th>Connector</th>
-                  <th>Type</th>
-                  <th>State</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Main meter</td>
-                  <td className="sheet__note">SIMULATOR</td>
-                  <td>
-                    <Chip kind="simulated">Simulated</Chip>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <p className="sheet__note" style={{ marginTop: 'var(--space-lg)' }}>
+            <Link href="/telemetry">Inspect the load curve →</Link>
+          </p>
         </div>
       </section>
 
-      {/* ---- Next safe action ---- */}
-      <section className="panel" aria-labelledby="next-action">
-        <div className="panel__head">
-          <span className="panel__title" id="next-action">
-            Next safe action
-          </span>
-        </div>
-        <p style={{ fontSize: 'var(--text-lg)', maxWidth: 'var(--measure)' }}>
-          Run a drill to convert declared capacity into tested capacity.
-        </p>
-        <p className="sheet__note" style={{ marginTop: 'var(--space-sm)' }}>
-          The envelope is currently built entirely from operator assertions. A
-          completed drill promotes the exercised mechanism to TESTED and raises
-          confidence from {ENVELOPE.confidenceScore.toFixed(2)} toward 0.85.
-        </p>
-        <div className="row" style={{ marginTop: 'var(--space-md)' }}>
-          <Link className="btn btn--primary" href="/drills">
-            Review the completed drill →
-          </Link>
-          <Link className="btn" href="/envelope">
-            Inspect envelope
-          </Link>
-        </div>
-      </section>
-
-      {/* ---- Last drill summary ---- */}
-      <section className="panel">
-        <div className="panel__head">
-          <span className="panel__title">Most recent drill</span>
-          <div className="row">
-            <Chip kind="simulated">Simulated</Chip>
-            <Chip kind="tested">Completed</Chip>
-          </div>
-        </div>
-        <div className="grid-metrics">
-          <div>
-            <span className="metric__label">Delivered</span>
-            <div className="metric__value" style={{ fontSize: 'var(--text-2xl)' }}>
-              {DRILL.deliveredEnergyKwh}
-              <span className="metric__unit">kWh</span>
+      {/* ---- Latest drill ---- */}
+      {latestDrill && mrv ? (
+        <section className="panel">
+          <div className="panel__head">
+            <span className="panel__title">Most recent drill</span>
+            <div className="row">
+              {latestDrill.simulation_mode ? <Chip kind="simulated">Simulated</Chip> : null}
+              <Chip kind={latestDrill.status === 'COMPLETED' ? 'tested' : 'declared'}>
+                {latestDrill.status}
+              </Chip>
             </div>
-            <div className="metric__foot">against {DRILL.committedEnergyKwh} committed</div>
           </div>
-          <div>
-            <span className="metric__label">Performance</span>
-            <div className="metric__value" style={{ fontSize: 'var(--text-2xl)' }}>
-              {DRILL.performanceBps}
-              <span className="metric__unit">bps</span>
+          <div className="grid-metrics">
+            <div>
+              <span className="metric__label">Delivered</span>
+              <div className="metric__value" style={{ fontSize: 'var(--text-2xl)' }}>
+                {whToKwh(mrv.delivered_energy_wh)}
+                <span className="metric__unit">kWh</span>
+              </div>
+              <div className="metric__foot">
+                of {whToKwh(mrv.committed_energy_wh)} committed
+              </div>
             </div>
-            <div className="metric__foot">9,600–10,000 required</div>
-          </div>
-          <div>
-            <span className="metric__label">Average delivered</span>
-            <div className="metric__value" style={{ fontSize: 'var(--text-2xl)' }}>
-              {DRILL.averageDeliveredKw}
-              <span className="metric__unit">kW</span>
+            <div>
+              <span className="metric__label">Performance</span>
+              <div className="metric__value" style={{ fontSize: 'var(--text-2xl)' }}>
+                {(mrv.performance_bps / 100).toFixed(2)}
+                <span className="metric__unit">%</span>
+              </div>
+              <div className="metric__foot tnum">{mrv.performance_bps} bps</div>
             </div>
-            <div className="metric__foot">against 500 requested</div>
+            <div>
+              <span className="metric__label">Average delivered</span>
+              <div className="metric__value" style={{ fontSize: 'var(--text-2xl)' }}>
+                {mrv.average_delivered_kw}
+                <span className="metric__unit">kW</span>
+              </div>
+              <div className="metric__foot">
+                of {formatKw(latestDrill.requested_reduction_kw)} requested
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+          <div className="row" style={{ marginTop: 'var(--space-md)' }}>
+            <Link className="btn" href={`/drills/${latestDrill.id}`}>
+              Follow the proof chain →
+            </Link>
+          </div>
+        </section>
+      ) : (
+        <section className="panel">
+          <div className="panel__head">
+            <span className="panel__title">Next safe action</span>
+          </div>
+          <p style={{ fontSize: 'var(--text-lg)' }}>
+            Run a drill to convert declared capacity into tested capacity.
+          </p>
+        </section>
+      )}
     </main>
+  );
+}
+
+function ProvenancePanel({
+  label,
+  value,
+  kind,
+  badge,
+  note,
+}: {
+  label: string;
+  value: number;
+  kind: 'tested' | 'declared';
+  badge: string;
+  note: string;
+}) {
+  return (
+    <div className="panel">
+      <span className="metric__label">{label}</span>
+      <div className="metric__value">
+        {value.toLocaleString('en-US')}
+        <span className="metric__unit">kW</span>
+      </div>
+      <div className="metric__foot">
+        <Chip kind={kind}>{badge}</Chip>
+      </div>
+      <p className="sheet__note" style={{ marginTop: 'var(--space-sm)' }}>
+        {note}
+      </p>
+    </div>
   );
 }

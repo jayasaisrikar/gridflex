@@ -87,7 +87,19 @@ async function main(): Promise<void> {
     // ---- 24h of background telemetry ------------------------------------
     const intervalSeconds = 60;
     const dayIntervals = (24 * 3600) / intervalSeconds; // 1440
-    const nowMs = Date.now();
+
+    /**
+     * Anchor to an exact interval boundary, NOT to Date.now().
+     *
+     * Anchoring to the raw clock made re-runs land on different instants, so the
+     * (facility, source_key, metric_key, measured_at) unique constraint never
+     * fired and each run appended a second interleaved series. The table then
+     * held 2x the expected rows at ~30s spacing while completeness still read
+     * 1.0 because it is capped — corrupt data that looked healthy.
+     * Flooring to the interval grid makes re-runs collide and dedupe correctly.
+     */
+    const intervalMs = intervalSeconds * 1000;
+    const nowMs = Math.floor(Date.now() / intervalMs) * intervalMs;
     const curve = buildDayCurve(nowMs, intervalSeconds, dayIntervals);
 
     // ---- The drill sits at the end of the window ------------------------
