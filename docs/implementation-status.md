@@ -89,6 +89,69 @@ instruction ("Implement tests before marking a phase complete").
 
 ---
 
+## Assurance engine (`packages/engine`) — spans Phases B, D, E
+
+Built ahead of sequence because it is framework- and database-independent, and
+was therefore not blocked by the connectivity issue above.
+
+### Completed
+
+- [x] `units` — exact bigint arithmetic. Power in milli-kilowatts, energy in whole
+      watt-hours. No certified value passes through floating point (§14).
+- [x] `canonical-json` — recursive key sorting, UTC RFC 3339 normalization,
+      decimals as strings, SHA-256 over canonical bytes (§15.1). Rejects
+      non-integer and non-finite numbers rather than producing a document whose
+      hash is not portable.
+- [x] `mrv` — median-of-5-eligible-days baseline with 12-interval fallback;
+      delivery and performance per §14 formulas; rebound reported separately and
+      never netted off; missing intervals contribute zero and are recorded as
+      quality blocks, never interpolated.
+- [x] `simulator` — seeded mulberry32 PRNG producing byte-identical output for a
+      given seed (§11), with fault injection for stale telemetry, missing
+      intervals, and thermal violation.
+- [x] **Canonical scenario acceptance gate passes** (§14, Phase D exit):
+
+      committed          250 kWh
+      delivered          244.724 kWh    (spec 240-250)      PASS
+      performance        9789 bps       (spec 9600-10000)   PASS
+      average delivered  489.447 kW     (spec ~490)         PASS
+      completeness       1.0
+
+      Driven end to end by the simulator and MRV engine — not hardcoded. Also
+      verified to hold across 25 different seeds.
+
+### Notable finding
+
+A precision defect was caught by test, not by review: converting each interval to
+watt-hours and summing the rounded results **overstates a 30-minute 490 kW drill
+by 10 Wh**, because 490 kW x 60 s = 8166.67 Wh rounds up every interval. That
+error would have landed in a certified Passport. `computeMrv` accumulates exact
+mkW-seconds and converts once; the hazard is now pinned by the regression test
+`"per-interval rounding DRIFTS"` and documented at the accumulation site.
+
+### Still outstanding for these phases
+
+- [ ] Envelope engine (caps, confidence, reason codes) — §12.
+- [ ] Drill state machine and arming challenge — §13.
+- [ ] Evidence bundle and Passport assembly — §15.
+- [ ] PDF rendering and snapshot tests — §15.3.
+
+### Commands run
+
+```bash
+pnpm --filter @gridflex/engine exec tsc --noEmit   # clean
+pnpm --filter @gridflex/engine exec vitest run     # 64 passed (4 files)
+```
+
+### Test results
+
+**64 tests passing, 0 failing, across 4 files** (`units`, `canonical-json`,
+`mrv`, `canonical-scenario`). Typecheck clean under full strict mode.
+
+---
+
 ## Phases B–F
 
-Not started.
+Not started beyond the engine work recorded above. The API (`apps/api`), worker
+(`apps/worker`), web (`apps/web`), and contracts (`packages/contracts`) packages
+are not yet scaffolded.
