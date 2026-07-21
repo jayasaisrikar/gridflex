@@ -27,6 +27,16 @@ importers:
         specifier: ^3.24.1
         version: 3.25.76
 
+  packages/contracts:
+    dependencies:
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      vitest:
+        specifier: ^3.0.5
+        version: 3.2.7(@types/node@26.1.1)(tsx@4.23.1)
+
   packages/db:
     dependencies:
       '@gridflex/config':
