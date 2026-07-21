@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput & node --watch dist/main.js",
+    "dev": "pnpm build && concurrently --kill-others --names tsc,api --prefix-colors gray,cyan \"pnpm dev:compile\" \"pnpm dev:run\"",
+    "dev:compile": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "dev:run": "node --env-file-if-exists=../../.env --watch dist/main.js",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
@@ -35,6 +37,7 @@
     "@swc/core": "^1.15.46",
     "@types/node": "^22.10.5",
     "@types/pg": "^8.11.10",
+    "concurrently": "^10.0.3",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "unplugin-swc": "^1.5.9",
