@@ -7,3 +7,5 @@ export * from './plan/index.js';
 export * from './risk/index.js';
 export * from './agent/tools.js';
 export * from './agent/orchestrator.js';
+export * from './anomaly/index.js';
+export * from './learning/index.js';

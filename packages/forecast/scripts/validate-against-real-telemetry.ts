@@ -23,6 +23,7 @@ import type { HorizonMinutes } from '../src/forecast/types.js';
 import { computeEnvelope } from '@gridflex/engine';
 import { planReduction, type MechanismType } from '../src/plan/index.js';
 import { assessRisk } from '../src/risk/index.js';
+import { confidencePenalty, detectTelemetryAnomalies } from '../src/anomaly/index.js';
 
 const INTERVAL_SECONDS = 300;
 const METRIC = 'facility.active_power_kw';
@@ -76,6 +77,13 @@ async function main(): Promise<void> {
     await client.query<{ measured_at: Date; value_double: number; quality: string }>(
       'select measured_at, value_double, quality from telemetry_readings where facility_id = $1 and metric_key = $2 order by measured_at',
       [facility.id, METRIC],
+    )
+  ).rows;
+
+  const drillWindows = (
+    await client.query<{ id: string; started_at: Date | null; ended_at: Date | null }>(
+      'select id, started_at, ended_at from drills where facility_id = $1 and started_at is not null and ended_at is not null',
+      [facility.id],
     )
   ).rows;
 
@@ -238,6 +246,26 @@ async function main(): Promise<void> {
       console.log(`    [${factor.severity}] ${factor.code}`);
     }
   }
+
+  // Anomaly detection over the real window.
+  const knownReductionWindows = drillWindows.map((d) => ({
+    start: formatUtcInstant(d.started_at!.getTime()),
+    end: formatUtcInstant(d.ended_at!.getTime()),
+    drillId: d.id,
+  }));
+
+  const naive = detectTelemetryAnomalies({ frame });
+  const anomalies = detectTelemetryAnomalies({ frame, knownReductionWindows });
+  console.log(`\nAnomaly scan`);
+  console.log(`  known drill windows ${knownReductionWindows.length}`);
+  console.log(`  without drill awareness: ${naive.length} anomalies, penalty ${confidencePenalty(naive)}`);
+  console.log(`  with drill awareness:`);
+  console.log(`  anomalies     ${anomalies.length}`);
+  for (const anomaly of anomalies.slice(0, 12)) {
+    console.log(`    [${anomaly.severity}] ${anomaly.code} ${anomaly.at ?? ''} — ${anomaly.detail}`);
+  }
+  if (anomalies.length > 12) console.log(`    ... ${anomalies.length - 12} more`);
+  console.log(`  implied confidence penalty ${confidencePenalty(anomalies)}`);
 
   // Backtest: hold out the final 3 hours, forecast into it, score against truth.
   console.log(`\nBacktest (holdout: final 3h)`);

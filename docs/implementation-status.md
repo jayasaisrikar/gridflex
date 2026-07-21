@@ -303,12 +303,21 @@ emits a user-facing `claimed*` field.
 | `backtest` | 12 |
 | `plan` | 26 |
 | `risk` | 27 |
+| `agent` | 45 |
+| `anomaly` | 39 |
+| `learning` | 24 |
 | `end-to-end` | 5 |
 | `trust-boundary` | 4 |
-| **Total** | **140** |
+| **Total** | **248** |
 
-Monorepo total is now **273 passing** (engine 110, contracts 23, forecast 140),
-up from 133. Typecheck clean under full strict mode across all five packages.
+Plus **10 integration tests** against a real Postgres, excluded from the default
+run and invoked with `pnpm test:integration` after `pnpm local:db:up`. They run
+against local Docker only — `assertLocal` refuses any non-localhost host, since
+they write drills and spec §25 forbids that against the live database. Each runs
+in a transaction that is rolled back.
+
+Monorepo total is now **381 passing** (engine 110, contracts 23, forecast 248),
+plus 10 integration, up from 133. Typecheck clean under full strict mode across all five packages.
 
 The clamp suite includes an exhaustive grid over 7 forecast values x 6 envelope
 values x 7 model confidences x 7 envelope confidences (2,058 combinations)
@@ -382,11 +391,68 @@ The 30-minute case exposes a **telemetry gap**: the facility reports only
 unverifiable and blocks. Closing this needs thermal and SoC metrics ingested —
 a connector question, not a modelling one.
 
-### Still outstanding for the AI layer
+### Sub-projects 5, 6 and 7 — agent, anomaly detection, learning
 
-- [ ] Agent orchestration and tool surface (5) — **requires a database**.
-- [ ] Anomaly detection (6).
-- [ ] Learning loop over completed drills (7) — **requires a database**.
+- [x] `agent` — pure orchestration state machine plus a tool registry declaring
+      each tool's blast radius as data. Approvals are **plan-bound and
+      single-use**: approving a small plan, re-planning to a larger reduction and
+      executing against the original approval is refused by two independent
+      mechanisms (fingerprint comparison, and `applyResult` clearing the approval
+      whenever the plan changes). `STOP_DRILL` is authorized in every phase,
+      under a latched emergency stop, with no approval, and after the session is
+      terminal — verified exhaustively across all combinations. A blocking risk
+      assessment refuses mutation even with a valid approval: approval is
+      permission to act, never permission to override a constraint.
+
+      Execution lives outside the package. The trust-boundary rule forbidding
+      third-party imports in `src/` forces this — the agent cannot reach a
+      database or connector even by accident.
+
+- [x] `anomaly` — robust statistics only (median/MAD, Iglewicz-Hoaglin modified
+      z at 3.5). Mean and standard deviation were rejected because a genuine
+      spike inflates its own sigma enough to hide the next one; MAD does not have
+      that failure. Detects load spikes and drops, stuck meters (a stuck meter
+      reports a plausible value forever and passes every range and quality
+      check), completeness drops, delivery shortfalls, rebound spikes, and
+      elevated cooling during a reduction.
+
+- [x] `learning` — compares predicted against delivered across drills and derives
+      a facility-specific correction. **Corrections may only make forecasts more
+      conservative.** A facility that over-delivers earns no upward adjustment;
+      a larger claim must come from the envelope on tested evidence, not from a
+      lucky streak. Anomalous and simulated drills are excluded from learning
+      entirely — learning from a drill where the meter was stuck would bake the
+      fault into the facility's model. `applyCorrection` throws on any factor
+      above 1, since the type system cannot express "only reduces".
+
+### Defect found by real data: the detector flagged a successful drill
+
+The first anomaly scan against live telemetry returned **five CRITICAL
+LOAD_DROP anomalies and a confidence penalty of 1.0** — the maximum.
+
+All five were the facility's own completed drill: 11:25-11:55 on 2026-07-21,
+500 kW requested, ~490 kW observed. The detector had no drill awareness, so a
+planned, operator-approved, successful reduction read as a critical fault, and
+the penalty would have destroyed the facility's confidence for doing exactly
+what the product exists to do. An operator would have muted it within a week,
+and a muted detector catches nothing.
+
+Fix: `detectTelemetryAnomalies` accepts `knownReductionWindows`. Intervals
+inside a drill are excluded from outlier and stuck-meter scanning — and from the
+MAD baseline itself, since a drill left in the sample inflates the scale estimate
+and masks genuine outliers around it. Those intervals are not unexamined;
+`detectDrillAnomalies` evaluates them against what the drill committed to, which
+is the correct expectation for them.
+
+Same real data, after the fix:
+
+    without drill awareness:  5 anomalies, confidence penalty 1.0
+    with drill awareness:     0 anomalies, confidence penalty 0
+
+A regression test pins both halves, and a further test confirms a genuine spike
+outside the drill window is still caught.
+
+### Still outstanding for the AI layer
 - [ ] LLM explanation layer (8).
 - [ ] Landing-page AI section (Predict / Plan / Protect / Learn).
 
