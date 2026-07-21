@@ -291,19 +291,21 @@ emits a user-facing `claimed*` field.
 
 ### Test results
 
-**83 tests passing** in `packages/forecast`, 0 failing.
+**140 tests passing** in `packages/forecast`, 0 failing.
 
 | Suite | Tests |
 |---|---:|
 | `features` | 23 |
-| `seasonal-baseline` | 26 |
+| `seasonal-baseline` | 30 |
 | `clamp` | 13 |
 | `backtest` | 12 |
+| `plan` | 26 |
+| `risk` | 27 |
 | `end-to-end` | 5 |
 | `trust-boundary` | 4 |
-| **Total** | **83** |
+| **Total** | **140** |
 
-Monorepo total is now **216 passing** (engine 110, contracts 23, forecast 83),
+Monorepo total is now **273 passing** (engine 110, contracts 23, forecast 140),
 up from 133. Typecheck clean under full strict mode across all five packages.
 
 The clamp suite includes an exhaustive grid over 7 forecast values x 6 envelope
@@ -323,10 +325,63 @@ the code: the import scanner matched ordinary prose inside a doc comment
 architectural test that reports phantom violations gets ignored, and an ignored
 boundary test is worse than none. The scanner now strips comments first.
 
+### Sub-projects 3 and 4 — risk assessment and reduction planner
+
+- [x] `plan` — allocates a committed reduction across mechanisms, least
+      disruptive first. Default order is WORKLOAD -> STORAGE -> COOLING:
+      deferring compute delays work that was finishing later anyway, discharging
+      storage spends a reserve needed for real outages, and raising setpoints
+      moves toward a thermal limit — the only one of the three that can damage
+      equipment. Overridable per mechanism via `metadata.disruptionRank`, with
+      malformed hints ignored rather than trusted.
+
+      A mechanism that cannot sustain the **full** window is excluded outright
+      rather than partially credited, because a mechanism dropping out mid-drill
+      converts a pass into a failure. Every exclusion is recorded with the
+      capacity forgone, so an operator sees what was available but unusable.
+
+- [x] `risk` — deterministic constraint checks producing LOW / MEDIUM / HIGH /
+      BLOCKED plus itemised factors. No model output can raise, lower, or clear
+      a factor; a language model that could talk its way past a thermal limit is
+      not a safety layer.
+
+      Thermal margin and battery state of charge are assessed **only when the
+      plan actually draws on cooling or storage** — blocking a workload-only
+      drill for a thin thermal margin would refuse safe work for no reason.
+      Where those inputs are needed, **unknown is treated as blocking, not as
+      fine**: a missing reading must never read as safe.
+
+### Full chain validated on the real facility
+
+The validation script now runs features -> forecast -> clamp -> plan -> risk
+against live data. Two results, both correct and both non-obvious:
+
+    30-min drill, target 600.000 kW
+      feasible    true
+      allocated   WORKLOAD_DEFERRAL 350 + UPS_BESS 150 + COOLING_HEADROOM 100
+      response    144s at 250.000 kW/min, rebound watch 45 min
+      RISK        BLOCKED
+                    [BLOCKER] THERMAL_MARGIN_UNKNOWN
+                    [BLOCKER] BATTERY_SOC_UNKNOWN
+
+    60-min drill, target 600.000 kW
+      feasible    false — allocated 350.000, shortfall 250.000
+      excluded    COOLING_HEADROOM, UPS_BESS (DURATION_EXCEEDS_MECHANISM_LIMIT)
+      RISK        BLOCKED  [BLOCKER] PLAN_NOT_FEASIBLE
+
+The 60-minute case is a real facility constraint, not a synthetic one: the three
+mechanisms sum to exactly the 600 kW envelope, but cooling and storage cap at 30
+minutes while workload deferral runs 60. **Half the facility's nominal
+flexibility is unavailable for a one-hour event**, which the mechanism table
+implies but nothing in the product previously surfaced.
+
+The 30-minute case exposes a **telemetry gap**: the facility reports only
+`facility.active_power_kw`. Any plan touching cooling or storage is therefore
+unverifiable and blocks. Closing this needs thermal and SoC metrics ingested —
+a connector question, not a modelling one.
+
 ### Still outstanding for the AI layer
 
-- [ ] Risk assessment agent (sub-project 3).
-- [ ] Reduction planner over mechanisms (4).
 - [ ] Agent orchestration and tool surface (5) — **requires a database**.
 - [ ] Anomaly detection (6).
 - [ ] Learning loop over completed drills (7) — **requires a database**.

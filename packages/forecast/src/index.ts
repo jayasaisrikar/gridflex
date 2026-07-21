@@ -3,3 +3,5 @@ export * from './forecast/types.js';
 export * from './forecast/seasonal-baseline.js';
 export * from './forecast/clamp.js';
 export * from './backtest/index.js';
+export * from './plan/index.js';
+export * from './risk/index.js';

@@ -21,6 +21,8 @@ import { clampToEnvelope } from '../src/forecast/clamp.js';
 import { runBacktest, type BacktestCase } from '../src/backtest/index.js';
 import type { HorizonMinutes } from '../src/forecast/types.js';
 import { computeEnvelope } from '@gridflex/engine';
+import { planReduction, type MechanismType } from '../src/plan/index.js';
+import { assessRisk } from '../src/risk/index.js';
 
 const INTERVAL_SECONDS = 300;
 const METRIC = 'facility.active_power_kw';
@@ -57,13 +59,15 @@ async function main(): Promise<void> {
       id: string;
       code: string;
       name: string;
+      mechanism_type: string;
       enabled: boolean;
       declared_reducible_kw: string | null;
       ramp_rate_kw_per_min: string | null;
       maximum_duration_min: number | null;
       rebound_window_min: number | null;
+      metadata: Record<string, unknown> | null;
     }>(
-      'select id, code, name, enabled, declared_reducible_kw, ramp_rate_kw_per_min, maximum_duration_min, rebound_window_min from flexibility_mechanisms where facility_id = $1',
+      'select id, code, name, mechanism_type, enabled, declared_reducible_kw, ramp_rate_kw_per_min, maximum_duration_min, rebound_window_min, metadata from flexibility_mechanisms where facility_id = $1',
       [facility.id],
     )
   ).rows;
@@ -74,6 +78,13 @@ async function main(): Promise<void> {
       [facility.id, METRIC],
     )
   ).rows;
+
+  const drillStats = (
+    await client.query<{ total: string; succeeded: string }>(
+      "select count(*)::text total, count(*) filter (where status = 'COMPLETED')::text succeeded from drills where facility_id = $1",
+      [facility.id],
+    )
+  ).rows[0] ?? { total: '0', succeeded: '0' };
 
   await client.end();
 
@@ -158,6 +169,73 @@ async function main(): Promise<void> {
         `  ${forecastAt} +${String(horizon).padStart(2)}m  ${detail.padEnd(62)} ` +
           `=> claim ${claim.claimedReducibleKw} kW conf ${claim.claimedConfidence} (${claim.bindingSide})`,
       );
+    }
+  }
+
+  // Full decision chain on the real facility: plan the clamped claim across the
+  // real mechanisms, then risk-assess the resulting plan.
+  const decisionAt = formatUtcInstant(anchorMs);
+  const chainForecast = forecaster.forecast({
+    frame,
+    forecastAt: decisionAt,
+    horizonMinutes: 30,
+    minimumSafeLoadKw,
+  });
+  const chainClaim = clampToEnvelope(chainForecast, envelope);
+
+  const planMechanisms = mechanisms.map((m) => ({
+    id: m.id,
+    code: m.code,
+    mechanismType: (m.mechanism_type ?? 'OTHER') as MechanismType,
+    enabled: m.enabled,
+    availableKw: m.declared_reducible_kw ?? '0.000',
+    rampKwPerMin: m.ramp_rate_kw_per_min,
+    maximumDurationMin: m.maximum_duration_min,
+    reboundWindowMin: m.rebound_window_min,
+    metadata: m.metadata ?? {},
+  }));
+
+  const newestReadingMs = parseUtcInstant(last.measuredAt);
+  const telemetryAgeSeconds = Math.max(
+    0,
+    Math.round((parseUtcInstant(windowEnd) - newestReadingMs) / 1000),
+  );
+
+  for (const durationMin of [30, 60]) {
+    const plan = planReduction({
+      targetReducibleKw: chainClaim.claimedReducibleKw,
+      durationMin,
+      mechanisms: planMechanisms,
+    });
+
+    const risk = assessRisk({
+      plan,
+      envelopeConfidence: envelope.confidenceScore,
+      envelopeStatus: envelope.status,
+      forecastIntervalUnderpowered: chainForecast.intervalUnderpowered,
+      telemetryAgeSeconds,
+      telemetryCompleteness: frame.completeness,
+      thermalMarginC: null,
+      batteryStateOfCharge: null,
+      priorDrillCount: Number(drillStats.total),
+      priorDrillSuccessCount: Number(drillStats.succeeded),
+      emergencyStopActive: false,
+    });
+
+    console.log(`\nPlan + risk (${durationMin} min drill, target ${chainClaim.claimedReducibleKw} kW)`);
+    console.log(`  feasible      ${plan.feasible}`);
+    console.log(`  allocated     ${plan.allocatedKw} kW (shortfall ${plan.shortfallKw} kW)`);
+    for (const allocation of plan.allocations) {
+      console.log(`    - ${allocation.code.padEnd(20)} ${allocation.allocatedKw.padStart(9)} kW`);
+    }
+    for (const exclusion of plan.excluded) {
+      console.log(`    x ${exclusion.code.padEnd(20)} ${exclusion.reasonCode}`);
+    }
+    console.log(`  response      ${plan.estimatedResponseSeconds}s at ${plan.aggregateRampKwPerMin} kW/min`);
+    console.log(`  rebound watch ${plan.reboundWindowMin} min`);
+    console.log(`  RISK          ${risk.level} — ${risk.summary}`);
+    for (const factor of risk.factors) {
+      console.log(`    [${factor.severity}] ${factor.code}`);
     }
   }
 
