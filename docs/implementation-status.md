@@ -129,29 +129,84 @@ error would have landed in a certified Passport. `computeMrv` accumulates exact
 mkW-seconds and converts once; the hazard is now pinned by the regression test
 `"per-interval rounding DRIFTS"` and documented at the accumulation site.
 
+- [x] `envelope` (§12) — cap selection `min(declared, observed, constraint)`,
+      physical-headroom and curtailment caps, provenance promoted only on real
+      evidence (TESTED requires an actual test), confidence derived from the
+      **weakest** mechanism with every adjustment itemised, hard 0.95 cap
+      pending external review. Blocked envelopes assert zero capacity and record
+      a BLOCKER decision with the numbers that caused it.
+- [x] `drill/state-machine` (§13) — pure transition evaluation. Emergency stop
+      preempts arming and starting but **never** blocks ABORT / FAIL / CANCEL,
+      so a live drill can always be brought down. All applicable refusals are
+      returned together rather than one at a time.
+
 ### Still outstanding for these phases
 
-- [ ] Envelope engine (caps, confidence, reason codes) — §12.
-- [ ] Drill state machine and arming challenge — §13.
 - [ ] Evidence bundle and Passport assembly — §15.
 - [ ] PDF rendering and snapshot tests — §15.3.
+- [ ] Arming challenge issue/consume logic (schema and contract exist; the
+      stateful single-use/expiry enforcement belongs in the API).
+
+---
+
+## `packages/contracts` — shared Zod schemas (§9)
+
+### Completed
+
+- [x] Primitives — UTC timestamps reject non-`Z` offsets so everything stored and
+      hashed is unambiguously UTC (§4.1); decimals cross the API boundary as
+      strings; power limited to 3 decimal places to match `numeric(14,3)`.
+- [x] Closed set of stable error codes plus the §9 error envelope. Spec §4.1
+      forbids branching on message text, so the code is the contract.
+- [x] Telemetry batch validates each reading's unit **against the canonical
+      metric** rather than coercing — a MW/kW mix-up would silently corrupt every
+      downstream calculation.
+- [x] RBAC permission matrix encoded once, consumed by both the API guard and the
+      web UI, so the two cannot disagree about who may do what.
+- [x] Facility, constraint, mechanism, envelope, drill, MRV, and Passport schemas.
+- [x] Passport schema carries `contains_simulated_data` **inside the hashed
+      document**, so a simulated Passport cannot be laundered into looking real.
+
+### Test results
+
+**23 tests passing.** Typecheck clean.
 
 ### Commands run
 
 ```bash
-pnpm --filter @gridflex/engine exec tsc --noEmit   # clean
-pnpm --filter @gridflex/engine exec vitest run     # 64 passed (4 files)
+pnpm -r --filter './packages/*' exec tsc --noEmit       # clean
+pnpm -r --filter './packages/*' exec vitest run         # 133 passed
 ```
 
 ### Test results
 
-**64 tests passing, 0 failing, across 4 files** (`units`, `canonical-json`,
-`mrv`, `canonical-scenario`). Typecheck clean under full strict mode.
+**133 tests passing, 0 failing** across 7 files:
+
+| Suite | Tests |
+|---|---:|
+| `engine/units` | 20 |
+| `engine/canonical-json` | 18 |
+| `engine/mrv` | 13 |
+| `engine/canonical-scenario` | 13 |
+| `engine/envelope` | 24 |
+| `engine/drill-state-machine` | 22 |
+| `contracts/contracts` | 23 |
+| **Total** | **133** |
+
+Typecheck clean under full strict mode across all four packages.
 
 ---
 
 ## Phases B–F
 
-Not started beyond the engine work recorded above. The API (`apps/api`), worker
-(`apps/worker`), web (`apps/web`), and contracts (`packages/contracts`) packages
-are not yet scaffolded.
+The pure domain layer is substantially built. Not yet scaffolded:
+
+- `apps/api` — NestJS + Fastify, validation pipe, guards, modules, health.
+- `apps/worker` — standalone NestJS context, advisory-lock jobs.
+- `apps/web` — Next.js App Router UI (§16).
+- `packages/db/repositories` and `scripts/` (`seed.ts`, `check-schema.ts`).
+- Evidence bundle and Passport assembly (§15), PDF rendering (§15.3).
+- All integration and E2E tests (§19.2, §19.3) — these require a database.
+
+**No phase has been formally completed.** Phase A's exit criterion remains
+unverified because no migration has been run against any database.
