@@ -1,0 +1,25 @@
+# --- Secrets: never commit ---
+GridFlex_private.env
+*.env
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Dependencies / build ---
+node_modules/
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# --- Test / tooling ---
+coverage/
+playwright-report/
+test-results/
+.turbo/
+
+# --- OS ---
+.DS_Store
