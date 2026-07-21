@@ -8,6 +8,7 @@ import { HealthController } from './modules/health/health.controller.js';
 import { FacilitiesController } from './modules/facilities/facilities.controller.js';
 import { TelemetryController } from './modules/telemetry/telemetry.controller.js';
 import { EnvelopesController } from './modules/envelopes/envelopes.controller.js';
+import { PassportsController } from './modules/passports/passports.controller.js';
 import { DrillsController } from './modules/drills/drills.controller.js';
 
 @Module({
@@ -17,6 +18,7 @@ import { DrillsController } from './modules/drills/drills.controller.js';
     FacilitiesController,
     TelemetryController,
     EnvelopesController,
+    PassportsController,
     DrillsController,
   ],
   providers: [

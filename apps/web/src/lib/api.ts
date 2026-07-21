@@ -123,6 +123,88 @@ export interface Mechanism {
   minimum_load_kw: string | null;
 }
 
+export interface PassportDocument {
+  schema_version: string;
+  version: number;
+  status: string;
+  evidence_sha256: string;
+  issued_at: string | null;
+  facility: { name: string; timezone: string; region: string | null; market: string | null };
+  methodology_version: string;
+  envelope: {
+    version: number;
+    status: string;
+    total_reducible_kw: string;
+    aggregate_ramp_kw_per_min: string;
+    sustainable_duration_min: number;
+    response_time_seconds: number;
+    confidence_score: string;
+    telemetry_completeness: string;
+    constraints_version: number;
+    mechanisms: {
+      code: string;
+      name: string;
+      provenance: 'DECLARED' | 'MODELED' | 'TESTED';
+      reducible_kw: string;
+      test_count: number;
+    }[];
+  };
+  safety: {
+    minimum_safe_load_kw: string;
+    maximum_curtailment_kw: string;
+    maximum_ramp_kw_per_min: string;
+    maximum_duration_min: number;
+    constraints_version: number;
+  };
+  data_quality: {
+    completeness: string;
+    window_start: string;
+    window_end: string;
+    modeling_window_days: number;
+    connector_provenance: { connector_type: string; name: string; last_success_at: string | null }[];
+    contains_simulated_data: boolean;
+  };
+  drill_history: {
+    drill_id: string;
+    name: string;
+    status: string;
+    started_at: string | null;
+    requested_reduction_kw: string;
+    delivered_energy_wh: string | null;
+    performance_bps: number | null;
+    simulation_mode: boolean;
+  }[];
+  limitations: string[];
+}
+
+export interface PassportRecord {
+  id: string;
+  version: number;
+  status: string;
+  passport_sha256: string;
+  issued_at: string | null;
+  superseded_by: string | null;
+  revocation_reason: string | null;
+  evidence_bundle_id: string;
+  envelope_id: string;
+  document: PassportDocument;
+}
+
+export interface PassportVerification {
+  passport_id: string;
+  version: number;
+  status: string;
+  stored_passport_sha256: string;
+  recomputed_passport_sha256: string;
+  passport_hash_matches: boolean;
+  stored_evidence_sha256: string;
+  recomputed_evidence_sha256: string;
+  evidence_hash_matches: boolean;
+  verified_at: string;
+  canonicalization_schema_version: string;
+  instructions: string;
+}
+
 export interface Envelope {
   id: string;
   version: number;
@@ -219,6 +301,10 @@ export const api = {
     ),
   telemetryQuality: (id: string) =>
     apiGet<TelemetryQuality>(`/facilities/${id}/telemetry/quality`),
+  passport: (id: string) =>
+    apiGet<{ passport: PassportRecord | null }>(`/facilities/${id}/passports/current`),
+  passportVerify: (passportId: string) =>
+    apiGet<PassportVerification>(`/passports/${passportId}/verify`),
   telemetry: (id: string, metric = 'facility.active_power_kw') =>
     apiGet<{ metric_key: string; points: TelemetryPoint[]; truncated: boolean }>(
       `/facilities/${id}/telemetry?metric_key=${encodeURIComponent(metric)}`,

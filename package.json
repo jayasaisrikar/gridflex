@@ -25,7 +25,8 @@
     "dev:web": "pnpm --filter @gridflex/web dev",
     "db:seed:sim": "pnpm --filter @gridflex/db exec tsx scripts/seed-simulation.ts",
     "telemetry:poll": "pnpm --filter @gridflex/db exec tsx scripts/telemetry-poller.ts",
-    "telemetry:topup": "pnpm --filter @gridflex/db exec tsx scripts/telemetry-poller.ts --once"
+    "telemetry:topup": "pnpm --filter @gridflex/db exec tsx scripts/telemetry-poller.ts --once",
+    "passport:issue": "pnpm --filter @gridflex/db exec tsx scripts/issue-passport.ts"
   },
   "devDependencies": {
     "typescript": "^5.7.3",
