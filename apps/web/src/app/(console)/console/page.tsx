@@ -146,7 +146,7 @@ export default async function OverviewPage() {
                 </table>
               </div>
               <p className="sheet__note" style={{ marginTop: 'var(--space-md)' }}>
-                <Link href="/envelope">See the full calculation →</Link>
+                <Link href="/console/envelope">See the full calculation →</Link>
               </p>
             </>
           ) : (
@@ -157,7 +157,7 @@ export default async function OverviewPage() {
                 flexibility position.
               </p>
               <div className="row" style={{ marginTop: 'var(--space-md)' }}>
-                <Link className="btn btn--primary" href="/envelope">
+                <Link className="btn btn--primary" href="/console/envelope">
                   Go to Envelope →
                 </Link>
               </div>
@@ -196,7 +196,7 @@ export default async function OverviewPage() {
           </div>
 
           <p className="sheet__note" style={{ marginTop: 'var(--space-lg)' }}>
-            <Link href="/telemetry">Inspect the load curve →</Link>
+            <Link href="/console/telemetry">Inspect the load curve →</Link>
           </p>
         </div>
       </section>
@@ -244,7 +244,7 @@ export default async function OverviewPage() {
             </div>
           </div>
           <div className="row" style={{ marginTop: 'var(--space-md)' }}>
-            <Link className="btn" href={`/drills/${latestDrill.id}`}>
+            <Link className="btn" href={`/console/drills/${latestDrill.id}`}>
               Follow the proof chain →
             </Link>
           </div>

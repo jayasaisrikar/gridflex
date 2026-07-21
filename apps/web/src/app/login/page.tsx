@@ -26,7 +26,7 @@ export default async function LoginPage({
       const code = error instanceof ApiError ? error.code : 'INTERNAL_ERROR';
       redirect(`/login?error=${encodeURIComponent(code)}`);
     }
-    redirect('/');
+    redirect('/console');
   }
 
   return (

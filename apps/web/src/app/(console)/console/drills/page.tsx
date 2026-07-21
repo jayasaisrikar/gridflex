@@ -64,7 +64,7 @@ export default async function DrillsPage() {
                       {drill.started_at ? drill.started_at.replace('T', ' ').replace('Z', '') : '—'}
                     </td>
                     <td>
-                      <Link href={`/drills/${drill.id}`}>Proof chain →</Link>
+                      <Link href={`/console/drills/${drill.id}`}>Proof chain →</Link>
                     </td>
                   </tr>
                 ))}

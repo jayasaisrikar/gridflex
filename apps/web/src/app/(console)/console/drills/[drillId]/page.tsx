@@ -120,7 +120,7 @@ export default async function DrillDetailPage({
           <div>
             <h1>{drill.name}</h1>
             <p className="pagehead__sub">
-              <Link href="/drills">Drills</Link> · baseline {drill.baseline_method}
+              <Link href="/console/drills">Drills</Link> · baseline {drill.baseline_method}
             </p>
           </div>
           <div className="row">

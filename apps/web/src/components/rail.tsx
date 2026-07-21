@@ -14,14 +14,14 @@ import { usePathname } from 'next/navigation';
  * Navigation is spec §16.1, in order.
  */
 const DESTINATIONS = [
-  { href: '/', label: 'Overview' },
-  { href: '/telemetry', label: 'Telemetry' },
-  { href: '/envelope', label: 'Envelope' },
-  { href: '/drills', label: 'Drills' },
-  { href: '/passport', label: 'Passport' },
-  { href: '/facility', label: 'Facility & Safety' },
-  { href: '/connectors', label: 'Connectors' },
-  { href: '/audit', label: 'Audit' },
+  { href: '/console', label: 'Overview' },
+  { href: '/console/telemetry', label: 'Telemetry' },
+  { href: '/console/envelope', label: 'Envelope' },
+  { href: '/console/drills', label: 'Drills' },
+  { href: '/console/passport', label: 'Passport' },
+  { href: '/console/facility', label: 'Facility & Safety' },
+  { href: '/console/connectors', label: 'Connectors' },
+  { href: '/console/audit', label: 'Audit' },
 ] as const;
 
 export function Rail() {
@@ -30,15 +30,15 @@ export function Rail() {
   return (
     <nav className="rail" aria-label="Primary">
       <div className="rail__brand">
-        <span className="rail__wordmark">GridFlex</span>
+        <Link href="/" className="rail__wordmark" style={{ textDecoration: 'none' }}>GridFlex</Link>
         <span className="rail__version">v1</span>
       </div>
 
       <ul className="rail__nav">
         {DESTINATIONS.map((destination) => {
           const isCurrent =
-            destination.href === '/'
-              ? pathname === '/'
+            destination.href === '/console'
+              ? pathname === '/console'
               : pathname.startsWith(destination.href);
 
           return (

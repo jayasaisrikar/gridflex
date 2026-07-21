@@ -1,6 +1,17 @@
 [
   {
     "date": "2026-07-21",
+    "macrostructure": "Manifesto",
+    "theme": "custom",
+    "theme_axes": "light / roman-serif / cool",
+    "vibe": "standards document, plain-spoken, defined by refusal",
+    "nav": "N9 edge-aligned minimal",
+    "footer": "Ft5 statement",
+    "enrichment": "none",
+    "brief": "GridFlex \u2014 public landing page"
+  },
+  {
+    "date": "2026-07-21",
     "macrostructure": "Narrative Workflow",
     "theme": "custom",
     "theme_axes": "dark / geometric-sans / cool",
@@ -8,6 +19,6 @@
     "nav": "N3 side-rail (operator variant)",
     "footer": "Ft2 inline single line",
     "enrichment": "none",
-    "brief": "GridFlex V2 — flexibility assurance operator console"
+    "brief": "GridFlex V2 \u2014 flexibility assurance operator console"
   }
 ]
