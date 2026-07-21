@@ -94,6 +94,22 @@ export interface Facility {
   cooling_reserve_kw: string | null;
 }
 
+export interface Constraints {
+  id: string;
+  version: number;
+  effective_from: string;
+  effective_to: string | null;
+  minimum_safe_load_kw: string | null;
+  maximum_curtailment_kw: string | null;
+  maximum_ramp_kw_per_min: string | null;
+  maximum_duration_min: number | null;
+  minimum_recovery_min: number | null;
+  maximum_rebound_kw: string | null;
+  thermal_limit_c: string | null;
+  excluded_workloads: unknown;
+  source_note: string | null;
+}
+
 export interface Mechanism {
   id: string;
   code: string;
@@ -103,6 +119,90 @@ export interface Mechanism {
   declared_reducible_kw: string | null;
   ramp_rate_kw_per_min: string | null;
   maximum_duration_min: number | null;
+  rebound_window_min: number | null;
+  minimum_load_kw: string | null;
+}
+
+export interface PassportDocument {
+  schema_version: string;
+  version: number;
+  status: string;
+  evidence_sha256: string;
+  issued_at: string | null;
+  facility: { name: string; timezone: string; region: string | null; market: string | null };
+  methodology_version: string;
+  envelope: {
+    version: number;
+    status: string;
+    total_reducible_kw: string;
+    aggregate_ramp_kw_per_min: string;
+    sustainable_duration_min: number;
+    response_time_seconds: number;
+    confidence_score: string;
+    telemetry_completeness: string;
+    constraints_version: number;
+    mechanisms: {
+      code: string;
+      name: string;
+      provenance: 'DECLARED' | 'MODELED' | 'TESTED';
+      reducible_kw: string;
+      test_count: number;
+    }[];
+  };
+  safety: {
+    minimum_safe_load_kw: string;
+    maximum_curtailment_kw: string;
+    maximum_ramp_kw_per_min: string;
+    maximum_duration_min: number;
+    constraints_version: number;
+  };
+  data_quality: {
+    completeness: string;
+    window_start: string;
+    window_end: string;
+    modeling_window_days: number;
+    connector_provenance: { connector_type: string; name: string; last_success_at: string | null }[];
+    contains_simulated_data: boolean;
+  };
+  drill_history: {
+    drill_id: string;
+    name: string;
+    status: string;
+    started_at: string | null;
+    requested_reduction_kw: string;
+    delivered_energy_wh: string | null;
+    performance_bps: number | null;
+    simulation_mode: boolean;
+  }[];
+  limitations: string[];
+}
+
+export interface PassportRecord {
+  id: string;
+  version: number;
+  status: string;
+  passport_sha256: string;
+  issued_at: string | null;
+  superseded_by: string | null;
+  revocation_reason: string | null;
+  evidence_bundle_id: string;
+  envelope_id: string;
+  document: PassportDocument;
+}
+
+export interface PassportVerification {
+  passport_id: string;
+  version: number;
+  status: string;
+  stored_passport_sha256: string;
+  recomputed_passport_sha256: string;
+  passport_hash_matches: boolean;
+  stored_evidence_sha256: string;
+  recomputed_evidence_sha256: string;
+  evidence_hash_matches: boolean;
+  verified_at: string;
+  canonicalization_schema_version: string;
+  instructions: string;
 }
 
 export interface Envelope {
@@ -192,7 +292,7 @@ export interface MrvReport {
 export const api = {
   facilities: () => apiGet<{ facilities: Facility[] }>('/facilities'),
   facility: (id: string) =>
-    apiGet<{ facility: Facility; constraints: unknown; mechanisms: Mechanism[] }>(
+    apiGet<{ facility: Facility; constraints: Constraints | null; mechanisms: Mechanism[] }>(
       `/facilities/${id}`,
     ),
   currentEnvelope: (id: string) =>
@@ -201,6 +301,10 @@ export const api = {
     ),
   telemetryQuality: (id: string) =>
     apiGet<TelemetryQuality>(`/facilities/${id}/telemetry/quality`),
+  passport: (id: string) =>
+    apiGet<{ passport: PassportRecord | null }>(`/facilities/${id}/passports/current`),
+  passportVerify: (passportId: string) =>
+    apiGet<PassportVerification>(`/passports/${passportId}/verify`),
   telemetry: (id: string, metric = 'facility.active_power_kw') =>
     apiGet<{ metric_key: string; points: TelemetryPoint[]; truncated: boolean }>(
       `/facilities/${id}/telemetry?metric_key=${encodeURIComponent(metric)}`,

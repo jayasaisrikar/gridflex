@@ -1,32 +1,34 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { Geist, JetBrains_Mono, Space_Grotesk } from 'next/font/google';
+import { DM_Sans, IBM_Plex_Mono, Manrope } from 'next/font/google';
 import './globals.css';
 
 /**
  * Fonts are self-hosted at build time via next/font. A control-room UI must not
  * depend on a third-party CDN at runtime, and spec §18 requires a strict CSP.
  */
-const geist = Geist({
+const dmSans = DM_Sans({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '700'],
-  variable: '--font-geist',
+  weight: 'variable',
+  style: ['normal'],
+  variable: '--font-dm-sans',
   display: 'swap',
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const ibmPlexMono = IBM_Plex_Mono({
   subsets: ['latin'],
   weight: ['400', '500'],
-  variable: '--font-jetbrains',
+  style: ['normal'],
+  variable: '--font-ibm-plex-mono',
   display: 'swap',
 });
 
-/** Marketing display face: a technical grotesk with enough character for large type. */
-const spaceGrotesk = Space_Grotesk({
+/** Professional display face with precise geometry and calmer proportions. */
+const manrope = Manrope({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+  weight: 'variable',
   style: ['normal'],
-  variable: '--font-space-grotesk',
+  variable: '--font-manrope',
   display: 'swap',
 });
 
@@ -40,7 +42,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="en"
-      className={`${geist.variable} ${jetbrainsMono.variable} ${spaceGrotesk.variable}`}
+      className={`${dmSans.variable} ${ibmPlexMono.variable} ${manrope.variable}`}
     >
       <body>{children}</body>
     </html>

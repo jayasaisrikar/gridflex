@@ -180,6 +180,9 @@ importers:
       '@gridflex/engine':
         specifier: workspace:*
         version: link:../engine
+      '@gridflex/forecast':
+        specifier: workspace:*
+        version: link:../forecast
       drizzle-orm:
         specifier: ^0.38.3
         version: 0.38.4(@types/pg@8.20.0)(@types/react@19.2.17)(pg@8.22.0)(react@19.2.7)
@@ -208,6 +211,28 @@ importers:
       '@types/node':
         specifier: ^22.20.1
         version: 22.20.1
+      vitest:
+        specifier: ^3.0.5
+        version: 3.2.7(@types/node@22.20.1)(tsx@4.23.1)
+
+  packages/forecast:
+    dependencies:
+      '@gridflex/engine':
+        specifier: workspace:*
+        version: link:../engine
+    devDependencies:
+      '@gridflex/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@types/node':
+        specifier: ^22.20.1
+        version: 22.20.1
+      '@types/pg':
+        specifier: ^8.20.0
+        version: 8.20.0
+      pg:
+        specifier: ^8.22.0
+        version: 8.22.0
       vitest:
         specifier: ^3.0.5
         version: 3.2.7(@types/node@22.20.1)(tsx@4.23.1)

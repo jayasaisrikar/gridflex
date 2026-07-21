@@ -1,7 +1,7 @@
 /* Hallmark · macrostructure: Narrative Workflow · N3 side-rail (operator variant) · Ft2 inline
  * theme: custom · vibe: "instrument-grade, dark control room, evidence over decoration"
  * paper: oklch(14% 0.012 250) · accent: oklch(64% 0.150 250)
- * display: Geist · body: Geist · mono: JetBrains Mono
+ * display: Manrope · body: DM Sans · mono: IBM Plex Mono
  * axes: dark / geometric-sans / cool
  * studied: no · context: user-provided · genre: modern-minimal
  *
@@ -55,9 +55,9 @@
   /* ---- Type ---- */
   /* Self-hosted via next/font — see layout.tsx. Fallbacks are for the pre-hydration
      paint only; the variables are set on <html>. */
-  --font-display: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
-  --font-body: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-jetbrains), ui-monospace, 'SF Mono', monospace;
+  --font-display: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), ui-monospace, 'SF Mono', monospace;
 
   /* Perfect-fourth-ish scale (1.25 major third at the small end, opening up at display) */
   --text-2xs: 0.6875rem; /* 11px — rail labels, unit suffixes */
@@ -139,9 +139,9 @@
   --mk-color-shadow: oklch(3% 0.008 165 / 0.72);
   --mk-color-transparent: transparent;
 
-  --mk-font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
-  --mk-font-body: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
-  --mk-font-label: var(--font-jetbrains), ui-monospace, monospace;
+  --mk-font-display: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --mk-font-body: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --mk-font-label: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
 
   --mk-text-label: 0.75rem;
   --mk-text-sm: 0.875rem;
