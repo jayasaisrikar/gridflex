@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { BrandLockup } from '@/components/brand';
 
 const DESTINATIONS = [
   { href: '/console', label: 'Overview', hint: 'Readiness and next safe action' },
@@ -103,7 +104,9 @@ export function Rail({ facilityName, facilityMeta, simulated }: RailProps) {
         >
           <span className="menu-glyph" aria-hidden="true" />
         </button>
-        <Link href="/console" className="mobilebar__brand" prefetch={false}>GridFlex</Link>
+        <Link href="/console" className="mobilebar__brand" prefetch={false}>
+          <BrandLockup />
+        </Link>
         <button
           className="icon-control"
           type="button"
@@ -244,7 +247,9 @@ function SourceStatus({ simulated }: { simulated: boolean }) {
 function RailBrand() {
   return (
     <div className="rail__brand">
-      <Link href="/console" className="rail__wordmark" prefetch={false}>GridFlex</Link>
+      <Link href="/console" className="rail__wordmark" prefetch={false}>
+        <BrandLockup />
+      </Link>
       <span className="rail__version">pilot</span>
     </div>
   );

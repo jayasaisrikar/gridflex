@@ -1,6 +1,7 @@
 import type { InputHTMLAttributes } from 'react';
 import { redirect } from 'next/navigation';
 import { AuthSubmitButton } from '@/components/auth-submit-button';
+import { BrandLockup } from '@/components/brand';
 import {
   apiBootstrapOwner,
   apiBootstrapStatus,
@@ -69,7 +70,10 @@ export default async function LoginPage({
   return (
     <main className="auth-shell">
       <header className="auth-intro">
-        <p className="eyebrow">GridFlex · operator workspace</p>
+        <div className="auth-brand">
+          <BrandLockup />
+          <span>operator workspace</span>
+        </div>
         <h1>{bootstrapAvailable ? 'Create the first owner' : 'Return to the control room'}</h1>
         <p>
           {bootstrapAvailable

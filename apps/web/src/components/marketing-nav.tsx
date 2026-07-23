@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { BrandLockup } from '@/components/brand';
 
 const links = [
   { href: '#product', label: 'Product' },
@@ -54,12 +55,7 @@ export function MarketingNav() {
     <header className={`mk-nav${floating ? ' is-floating' : ''}`}>
       <nav className="mk-nav__inner" aria-label="Primary navigation">
         <Link className="mk-wordmark" href="/" aria-label="GridFlex home">
-          <span className="mk-wordmark__mark" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
-          <span>GridFlex</span>
+          <BrandLockup />
         </Link>
 
         <div className="mk-nav__links" aria-label="Landing-page sections">

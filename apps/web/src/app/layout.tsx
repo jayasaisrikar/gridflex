@@ -30,12 +30,19 @@ const displayFont = localFont({
 });
 
 export const metadata: Metadata = {
+  applicationName: 'GridFlex',
   title: {
     default: 'GridFlex — Flexibility Assurance',
     template: '%s · GridFlex',
   },
   description:
     'Prove how much load a data centre can safely shed, how fast, for how long — with every number traceable to telemetry, constraints, and immutable evidence.',
+  manifest: '/manifest.webmanifest',
+  icons: {
+    icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
+    shortcut: '/icon.svg',
+    apple: '/apple-icon.png',
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

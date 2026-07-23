@@ -61,6 +61,38 @@ a:hover {
   text-decoration-color: var(--color-accent);
 }
 
+/* Shared brand system. The signal tile stays teal while the frame inherits
+   the surrounding foreground colour for contrast on light and dark surfaces. */
+.brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.58em;
+  min-width: 0;
+  color: inherit;
+  line-height: 1;
+}
+
+.brand-lockup__mark {
+  width: 1.7em;
+  height: auto;
+  flex: 0 0 auto;
+}
+
+.brand-lockup__name {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.22em;
+  font-family: var(--font-display);
+  font-size: 0.92em;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  white-space: nowrap;
+}
+
+.brand-lockup__name > :last-child {
+  color: #0a9da3;
+}
+
 /* Focus must appear instantly — never animated. */
 :focus-visible {
   outline: 2px solid var(--color-focus);
@@ -117,7 +149,7 @@ td.num,
 .rail__brand {
   padding: var(--space-xs) var(--space-md) var(--space-lg);
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-xs);
 }
 
@@ -128,6 +160,10 @@ td.num,
   letter-spacing: -0.03em;
   color: var(--color-ink);
   text-decoration: none;
+}
+
+.rail__wordmark .brand-lockup__mark {
+  width: 1.65rem;
 }
 
 .rail__version {
@@ -309,6 +345,10 @@ td.num,
   font-weight: var(--weight-display);
   letter-spacing: -0.03em;
   text-decoration: none;
+}
+
+.mobilebar__brand .brand-lockup__mark {
+  width: 1.4rem;
 }
 
 .icon-control {
@@ -1085,6 +1125,23 @@ td.num,
   display: grid;
   gap: var(--space-sm);
   max-width: 52rem;
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.02em;
+}
+
+.auth-brand .brand-lockup {
+  padding-inline-end: var(--space-sm);
+  border-inline-end: var(--rule-hair) solid var(--color-rule-strong);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
 }
 
 .auth-intro h1 {

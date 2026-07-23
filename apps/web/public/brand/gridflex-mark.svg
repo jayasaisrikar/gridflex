@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <title>GridFlex</title>
+  <path d="M6 24h10v24h32V34H34V24h24v34H6V24Z" fill="#061F40"/>
+  <path d="M22 6h36v10H22V6Z" fill="#061F40"/>
+  <path d="M6 6h10v10H6V6Z" fill="#0A9DA3"/>
+</svg>

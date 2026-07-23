@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BrandLockup } from '@/components/brand';
 import type { CSSProperties } from 'react';
 import { GridInfrastructureScene } from '@/components/grid-infrastructure-scene';
 import { LandingMotion } from '@/components/landing-motion';
@@ -420,8 +421,7 @@ export default function LandingPage() {
 
       <footer className="mk-footer">
         <div className="mk-footer__brand">
-          <span className="mk-wordmark__mark" aria-hidden="true"><i /><i /><i /></span>
-          <strong>GridFlex</strong>
+          <BrandLockup />
         </div>
         <p>
           Flexibility assurance for large digital loads. Read-only telemetry first. Operator

@@ -278,24 +278,19 @@
   text-decoration: none;
 }
 
-.mk-wordmark__mark {
-  display: inline-flex;
-  width: 1.25rem;
-  height: 1.2rem;
-  align-items: flex-end;
-  gap: var(--mk-space-3xs);
+.mk-wordmark .brand-lockup__mark {
+  width: 1.55rem;
 }
 
-.mk-wordmark__mark i {
-  display: block;
-  width: 0.2rem;
-  transform-origin: bottom;
-  background: var(--mk-color-accent);
+.mk-wordmark .brand-lockup__name,
+.mk-footer__brand .brand-lockup__name {
+  font-family: var(--mk-font-display);
 }
 
-.mk-wordmark__mark i:nth-child(1) { height: 42%; }
-.mk-wordmark__mark i:nth-child(2) { height: 100%; }
-.mk-wordmark__mark i:nth-child(3) { height: 68%; }
+.mk-wordmark .brand-lockup__name > :last-child,
+.mk-footer__brand .brand-lockup__name > :last-child {
+  color: #18b9bd;
+}
 
 .mk-nav__links {
   display: none;

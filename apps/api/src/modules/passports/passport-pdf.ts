@@ -15,6 +15,7 @@ const MUTED: Rgb = [0.36, 0.39, 0.44];
 const RULE: Rgb = [0.78, 0.8, 0.84];
 const PAPER: Rgb = [0.965, 0.97, 0.98];
 const WHITE: Rgb = [1, 1, 1];
+const BRAND_TEAL: Rgb = [0.039, 0.616, 0.639];
 const AMBER: Rgb = [0.95, 0.66, 0.14];
 const GREEN: Rgb = [0.1, 0.48, 0.3];
 
@@ -156,8 +157,10 @@ class PassportPdf {
     this.pages.push({ commands: [] });
     this.y = PAGE_HEIGHT - MARGIN;
     if (!first) {
-      this.text('GridFlex', MARGIN, this.y, 10, 'F2', INK);
-      this.text('FLEXIBILITY PASSPORT', MARGIN + 61, this.y, 8, 'F3', MUTED);
+      this.brandMark(MARGIN, this.y - 3, 15, INK);
+      this.text('GRID', MARGIN + 22, this.y, 9, 'F2', INK);
+      this.text('FLEX', MARGIN + 44, this.y, 9, 'F2', BRAND_TEAL);
+      this.text('FLEXIBILITY PASSPORT', MARGIN + 78, this.y, 8, 'F3', MUTED);
       this.text(
         `v${this.document.version} / ${this.document.facility.name}`,
         PAGE_WIDTH - MARGIN,
@@ -174,7 +177,9 @@ class PassportPdf {
 
   private coverHeader(): void {
     this.fillRect(0, PAGE_HEIGHT - 126, PAGE_WIDTH, 126, INK);
-    this.text('GridFlex', MARGIN, PAGE_HEIGHT - 44, 11, 'F2', WHITE);
+    this.brandMark(MARGIN, PAGE_HEIGHT - 49, 18, WHITE);
+    this.text('GRID', MARGIN + 26, PAGE_HEIGHT - 44, 10, 'F2', WHITE);
+    this.text('FLEX', MARGIN + 51, PAGE_HEIGHT - 44, 10, 'F2', BRAND_TEAL);
     this.text('FLEXIBILITY PASSPORT', MARGIN, PAGE_HEIGHT - 79, 25, 'F2', WHITE);
     this.text(
       `${this.document.facility.name} / version ${this.document.version}`,
@@ -347,6 +352,16 @@ class PassportPdf {
 
   private line(x1: number, y1: number, x2: number, y2: number, color: Rgb): void {
     this.page.commands.push(lineCommand(x1, y1, x2, y2, color));
+  }
+
+  private brandMark(x: number, y: number, size: number, frame: Rgb): void {
+    const unit = size / 6;
+    this.fillRect(x, y, unit, unit * 3.5, frame);
+    this.fillRect(x, y, unit * 5, unit, frame);
+    this.fillRect(x + (unit * 4), y, unit, unit * 2.5, frame);
+    this.fillRect(x + (unit * 2.5), y + (unit * 1.5), unit * 2.5, unit, frame);
+    this.fillRect(x + (unit * 2), y + (unit * 5), unit * 3, unit, frame);
+    this.fillRect(x, y + (unit * 5), unit, unit, BRAND_TEAL);
   }
 }
 
