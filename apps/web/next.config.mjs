@@ -1,3 +1,16 @@
+/**
+ * Next's dev-mode React Refresh runtime evaluates strings, so development needs
+ * 'unsafe-eval'. Without it the CSP kills the refresh runtime during startup,
+ * hydration never completes, and every client component silently fails to mount
+ * — charts render as empty boxes and forms stop responding.
+ *
+ * Production keeps the strict policy: no eval is needed once the bundle is built.
+ */
+const isDevelopment = process.env.NODE_ENV === 'development';
+const scriptSrc = isDevelopment
+  ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+  : "script-src 'self' 'unsafe-inline'";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -18,7 +31,7 @@ const nextConfig = {
               "img-src 'self' data:",
               "font-src 'self'",
               "style-src 'self' 'unsafe-inline'",
-              "script-src 'self' 'unsafe-inline'",
+              scriptSrc,
               "connect-src 'self'",
             ].join('; '),
           },

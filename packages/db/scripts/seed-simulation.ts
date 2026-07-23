@@ -68,20 +68,33 @@ async function main(): Promise<void> {
     const organizationId = facility.rows[0]!.organization_id;
 
     // ---- Connector -------------------------------------------------------
-    const connector = await client.query<{ id: string }>(
-      `insert into connectors (facility_id, name, connector_type, status, config_summary, poll_interval_seconds)
-       values ($1, 'Simulator main meter', 'SIMULATOR', 'ACTIVE', $2::jsonb, 60)
-       on conflict do nothing
-       returning id`,
-      [facilityId, JSON.stringify({ seed: SEED, simulated: true })],
+    /**
+     * Look the connector up BEFORE inserting.
+     *
+     * This previously relied on `on conflict do nothing`, but connectors carry no
+     * unique constraint on (facility, name), so the insert never conflicted and
+     * every re-run appended another "Simulator main meter". Six accumulated that
+     * way, all ingesting the same metric for the same minute — which duplicated
+     * chart points and made the load curve zig-zag between identical sources.
+     *
+     * Matching the poller's `order by created_at limit 1` keeps both processes
+     * attached to the same canonical source.
+     */
+    const existing = await client.query<{ id: string }>(
+      `select id from connectors
+        where facility_id = $1 and connector_type = 'SIMULATOR'
+        order by created_at limit 1`,
+      [facilityId],
     );
-    let connectorId = connector.rows[0]?.id;
-    if (!connectorId) {
-      const existing = await client.query<{ id: string }>(
-        `select id from connectors where facility_id = $1 and connector_type = 'SIMULATOR' limit 1`,
-        [facilityId],
+    let connectorId = existing.rows[0]?.id;
+    if (connectorId === undefined) {
+      const created = await client.query<{ id: string }>(
+        `insert into connectors (facility_id, name, connector_type, status, config_summary, poll_interval_seconds)
+         values ($1, 'Simulator main meter', 'SIMULATOR', 'ACTIVE', $2::jsonb, 60)
+         returning id`,
+        [facilityId, JSON.stringify({ seed: SEED, simulated: true })],
       );
-      connectorId = existing.rows[0]?.id;
+      connectorId = created.rows[0]?.id;
     }
 
     // ---- 24h of background telemetry ------------------------------------

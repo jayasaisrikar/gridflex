@@ -33,11 +33,26 @@ export function LoadChart({
   minimumSafeLoadKw: number | null;
   normalLoadKw: number | null;
 }) {
-  const data = points.map((point) => ({
-    t: point.measured_at,
-    label: point.measured_at.slice(11, 16),
-    kw: Number(point.value),
-  }));
+  /**
+   * Several connectors can report the same metric for the same instant. Plotting
+   * the raw list makes the line zig-zag between sources at one timestamp, buckles
+   * the category axis, and collides React keys in the values table below.
+   *
+   * Collapse to one reading per instant (last write wins) and sort chronologically,
+   * so the x-axis is monotonic and every key is unique. This is a display decision
+   * only — it does not change completeness, which counts distinct minutes anyway.
+   */
+  const byInstant = new Map<string, number>();
+  for (const point of points) {
+    byInstant.set(point.measured_at, Number(point.value));
+  }
+  const data = [...byInstant.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([measuredAt, kw]) => ({
+      t: measuredAt,
+      label: measuredAt.slice(11, 16),
+      kw,
+    }));
 
   const values = data.map((d) => d.kw);
   const min = Math.min(...values, minimumSafeLoadKw ?? Infinity);
