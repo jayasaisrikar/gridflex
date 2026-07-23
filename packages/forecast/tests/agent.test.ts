@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { planReduction, type PlanMechanismInput, type ReductionPlan } from '../src/plan/index.js';
-import { assessRisk, type RiskAssessment } from '../src/risk/index.js';
+import { planReduction, type PlanMechanismInput } from '../src/plan/index.js';
+import { assessRisk } from '../src/risk/index.js';
 import { TOOL_REGISTRY, isMutating, requiresApproval, type ToolName } from '../src/agent/tools.js';
 import {
   applyResult,

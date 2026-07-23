@@ -4,10 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "next build",
+    "build": "pnpm --dir ../.. build:packages && pnpm build:app",
+    "build:app": "next build",
     "start": "next start -p 3000",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests --exclude 'e2e/**'",
+    "test:e2e": "playwright test --config playwright.config.ts"
   },
   "dependencies": {
     "@gridflex/contracts": "workspace:*",
@@ -20,6 +22,7 @@
     "three": "^0.185.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.51.1",
     "@types/node": "^22.10.5",
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",

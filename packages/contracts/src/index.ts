@@ -3,6 +3,7 @@ export * from './errors.js';
 export * from './auth.js';
 export * from './facilities.js';
 export * from './telemetry.js';
+export * from './connectors.js';
 export * from './envelopes.js';
 export * from './drills.js';
 export * from './passports.js';

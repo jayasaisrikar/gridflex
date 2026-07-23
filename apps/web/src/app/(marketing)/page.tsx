@@ -36,8 +36,8 @@ const solutionSteps = [
   {
     number: '01',
     title: 'Connect',
-    copy: 'Ingest read-only interval-meter data and selected DCIM, BMS, UPS, battery, or workload-scheduler telemetry.',
-    detail: 'No control path required',
+    copy: 'Import interval-meter CSV data or use the clearly labelled facility simulator during a design-partner pilot.',
+    detail: 'Read-only pilot path',
   },
   {
     number: '02',
@@ -88,9 +88,9 @@ const agentBoundaries = [
 ] as const;
 
 const trustStages = [
-  ['01', 'Read-only telemetry', 'Observe facility state without writing setpoints.', true],
-  ['02', 'Shadow recommendations', 'Compare a safe operating recommendation with real outcomes.', true],
-  ['03', 'Operator-approved drills', 'Validate the envelope through named, reversible actions.', true],
+  ['01', 'Read-only telemetry', 'Import pilot data without writing facility setpoints.', true],
+  ['02', 'Shadow recommendations', 'Review a conservative envelope against explicit constraints.', true],
+  ['03', 'Simulated drills', 'Exercise approvals, safety gates, MRV, and evidence before field control.', true],
   ['04', 'Supervised dispatch', 'A later stage, after repeated evidence and operating approval.', false],
   ['05', 'Bounded automation', 'Only inside explicit constraints, with emergency stop intact.', false],
 ] as const;
@@ -114,13 +114,13 @@ const stakeholders = [
 ] as const;
 
 const integrations = [
-  'Interval meters',
-  'DCIM platforms',
-  'BMS systems',
-  'UPS and battery systems',
-  'Compute schedulers',
-  'Demand-response aggregators',
-  'Utility export formats',
+  'CSV interval-meter imports',
+  'Seeded facility simulator',
+  'JSON, CSV, and PDF exports',
+  'DCIM and BMS connectors · next',
+  'UPS and battery systems · next',
+  'Compute schedulers · next',
+  'Aggregator APIs · next',
 ] as const;
 
 export default function LandingPage() {
@@ -141,9 +141,9 @@ export default function LandingPage() {
               The flexibility assurance layer for large digital loads.
             </p>
             <p className="mk-hero__lede">
-              GridFlex converts live facility telemetry into a verified flexibility envelope,
-              validates it through controlled drills, and produces utility- and market-ready
-              evidence that operators, aggregators, lenders, and energy partners can trust.
+              GridFlex turns imported or simulated facility telemetry into a conservative,
+              traceable flexibility envelope, exercises it through simulation-only drills, and
+              produces independently checkable pilot evidence.
             </p>
             <div className="mk-hero__actions">
               <a className="mk-button mk-button--primary" href="#pilot">
@@ -225,11 +225,15 @@ export default function LandingPage() {
 
         <section className="mk-agent mk-section" id="ai" aria-labelledby="agent-title">
           <header className="mk-section-head" data-reveal>
-            <h2 id="agent-title">An AI agent that understands both compute and power.</h2>
+            <h2 id="agent-title">
+              A bounded forecasting layer—tested in code, not yet in the pilot loop.
+            </h2>
             <p>
-              GridFlex combines facility telemetry, workload schedules, cooling conditions, and
-              historical drills to predict available flexibility, generate safe reduction plans,
-              and verify what was actually delivered.
+              GridFlex now includes offline-tested modules for seasonal forecasting,
+              conservative workload allocation, deterministic safety gates, anomaly
+              screening, and learning. They are not yet wired to live telemetry, the API,
+              worker, or console; the pilot continues to use the deterministic assurance
+              workflow.
             </p>
           </header>
 
@@ -255,8 +259,9 @@ export default function LandingPage() {
               ))}
             </dl>
             <p className="mk-agent__note">
-              The decision layer proposes. The deterministic engine decides what may be claimed,
-              and the Passport records what was proved.
+              These are library capabilities under validation. No agent action is executed by
+              the pilot runtime. The deterministic engine decides what may be claimed, and the
+              Passport records what was proved.
             </p>
           </div>
         </section>
@@ -315,7 +320,7 @@ export default function LandingPage() {
                   <h3>{title}</h3>
                   <p>{copy}</p>
                 </div>
-                <span className="mk-trust__state">{active ? 'Shipping scope' : 'Evidence gate'}</span>
+                <span className="mk-trust__state">{active ? 'Pilot scope' : 'Evidence gate'}</span>
               </li>
             ))}
           </ol>
@@ -440,11 +445,11 @@ function OperationalStatus() {
       <header className="mk-status__head" data-reveal>
         <div>
           <span className="mk-demo-label"><i aria-hidden="true" /> Demo facility data</span>
-          <h2 id="status-title">A live operating picture—not a static claim.</h2>
+          <h2 id="status-title">A pilot operating picture—not a static claim.</h2>
         </div>
         <div className="mk-status__verified">
           <span>Passport status</span>
-          <strong><i aria-hidden="true" /> Verified</strong>
+          <strong><i aria-hidden="true" /> Simulation verified</strong>
         </div>
       </header>
 
@@ -562,7 +567,7 @@ function SamplePassport() {
           <strong>Demo Compute Facility</strong>
         </div>
         <div className="mk-passport-card__status">
-          <span><i aria-hidden="true" /> Verified</span>
+          <span><i aria-hidden="true" /> Simulation verified</span>
           <small>Demo facility data</small>
         </div>
       </div>
@@ -596,7 +601,7 @@ function SamplePassport() {
           <div>
             <span>Drill history</span>
             <strong>Latest result · 98% delivered</strong>
-            <small>Controlled drill · operator approved</small>
+            <small>Controlled simulation · operator approved</small>
           </div>
           <div>
             <span>Evidence hash</span>

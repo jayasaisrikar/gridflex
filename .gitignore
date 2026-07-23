@@ -19,6 +19,7 @@ out/
 coverage/
 playwright-report/
 test-results/
+output/playwright/
 .turbo/
 
 # --- OS ---

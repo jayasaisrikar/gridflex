@@ -10,6 +10,8 @@ import { TelemetryController } from './modules/telemetry/telemetry.controller.js
 import { EnvelopesController } from './modules/envelopes/envelopes.controller.js';
 import { PassportsController } from './modules/passports/passports.controller.js';
 import { DrillsController } from './modules/drills/drills.controller.js';
+import { ConnectorsController } from './modules/connectors/connectors.controller.js';
+import { AuditController } from './modules/audit/audit.controller.js';
 
 @Module({
   imports: [DatabaseModule, AuthModule],
@@ -20,6 +22,8 @@ import { DrillsController } from './modules/drills/drills.controller.js';
     EnvelopesController,
     PassportsController,
     DrillsController,
+    ConnectorsController,
+    AuditController,
   ],
   providers: [
     OrgScopeService,

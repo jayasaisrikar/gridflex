@@ -7,7 +7,8 @@
     "dev": "pnpm build && concurrently --kill-others --names tsc,api --prefix-colors gray,cyan \"pnpm dev:compile\" \"pnpm dev:run\"",
     "dev:compile": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "dev:run": "node --env-file-if-exists=../../.env --watch dist/main.js",
-    "build": "tsc -p tsconfig.build.json",
+    "build": "pnpm --dir ../.. build:packages && pnpm build:app",
+    "build:app": "tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"

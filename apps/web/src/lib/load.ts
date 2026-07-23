@@ -1,6 +1,8 @@
 import 'server-only';
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { api, ApiError, UNAUTHENTICATED, type Facility } from './api';
+import { getRefreshToken } from './session';
 
 /**
  * Resolves the facility this session operates on.
@@ -13,10 +15,19 @@ export async function requireFacility(): Promise<Facility> {
   try {
     const { facilities } = await api.facilities();
     const facility = facilities[0];
-    if (!facility) redirect('/no-facility');
+    if (!facility) redirect('/setup');
     return facility;
   } catch (error) {
-    if (error instanceof ApiError && error.code === UNAUTHENTICATED) redirect('/login');
+    if (
+      error instanceof ApiError &&
+      (error.code === UNAUTHENTICATED || error.code === 'TOKEN_EXPIRED')
+    ) {
+      const refreshToken = await getRefreshToken();
+      if (!refreshToken) redirect('/login');
+      const requestHeaders = await headers();
+      const currentPath = requestHeaders.get('x-gridflex-pathname') ?? '/console';
+      redirect(`/session/refresh?next=${encodeURIComponent(currentPath)}`);
+    }
     throw error;
   }
 }

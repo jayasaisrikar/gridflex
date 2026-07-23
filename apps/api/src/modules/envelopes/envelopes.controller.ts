@@ -1,5 +1,5 @@
 import { Controller, Get, HttpCode, Inject, Param, Post } from '@nestjs/common';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import { schema } from '@gridflex/db/client';
 import type { Database } from '@gridflex/db/client';
 import {
@@ -7,10 +7,11 @@ import {
   ENVELOPE_METHODOLOGY_VERSION,
   type MechanismInput,
 } from '@gridflex/engine';
-import { DomainError } from '@gridflex/contracts';
+import { DomainError, uuidSchema } from '@gridflex/contracts';
 import { DATABASE } from '../../common/database/database.module.js';
 import { CurrentUserId } from '../../common/auth/auth.guard.js';
 import { OrgScopeService } from '../../common/auth/org-scope.service.js';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js';
 import { toRfc3339 } from '../facilities/facilities.controller.js';
 
 /**
@@ -32,7 +33,7 @@ export class EnvelopesController {
   @Get('facilities/:facilityId/envelopes/current')
   async current(
     @CurrentUserId() userId: string,
-    @Param('facilityId') facilityId: string,
+    @Param('facilityId', new ZodValidationPipe(uuidSchema)) facilityId: string,
   ) {
     await this.scope.requireFacility(userId, facilityId, 'envelope:read');
 
@@ -56,7 +57,7 @@ export class EnvelopesController {
   @Get('facilities/:facilityId/envelopes')
   async history(
     @CurrentUserId() userId: string,
-    @Param('facilityId') facilityId: string,
+    @Param('facilityId', new ZodValidationPipe(uuidSchema)) facilityId: string,
   ) {
     await this.scope.requireFacility(userId, facilityId, 'envelope:read');
     const rows = await this.db
@@ -67,10 +68,30 @@ export class EnvelopesController {
     return { envelopes: rows.map(toEnvelopeDto) };
   }
 
+  @Get('envelopes/:envelopeId')
+  async detail(
+    @CurrentUserId() userId: string,
+    @Param('envelopeId', new ZodValidationPipe(uuidSchema)) envelopeId: string,
+  ) {
+    const [envelope] = await this.db
+      .select()
+      .from(schema.envelopes)
+      .where(eq(schema.envelopes.id, envelopeId))
+      .limit(1);
+
+    if (!envelope) throw new DomainError('NOT_FOUND', 'Envelope not found', undefined, 404);
+    await this.scope.requireFacility(userId, envelope.facilityId, 'envelope:read');
+
+    return {
+      envelope: toEnvelopeDto(envelope),
+      mechanisms: await this.loadEnvelopeMechanisms(envelope.id),
+    };
+  }
+
   @Get('envelopes/:envelopeId/explanation')
   async explanation(
     @CurrentUserId() userId: string,
-    @Param('envelopeId') envelopeId: string,
+    @Param('envelopeId', new ZodValidationPipe(uuidSchema)) envelopeId: string,
   ) {
     const [envelope] = await this.db
       .select()
@@ -114,7 +135,7 @@ export class EnvelopesController {
   @HttpCode(201)
   async recompute(
     @CurrentUserId() userId: string,
-    @Param('facilityId') facilityId: string,
+    @Param('facilityId', new ZodValidationPipe(uuidSchema)) facilityId: string,
   ) {
     const { organizationId } = await this.scope.requireFacility(
       userId,
@@ -129,10 +150,20 @@ export class EnvelopesController {
       .limit(1);
     if (!facility) throw new DomainError('NOT_FOUND', 'Facility not found', undefined, 404);
 
+    const constraintsAsOf = new Date().toISOString();
     const [constraints] = await this.db
       .select()
       .from(schema.facilityConstraints)
-      .where(eq(schema.facilityConstraints.facilityId, facilityId))
+      .where(
+        and(
+          eq(schema.facilityConstraints.facilityId, facilityId),
+          lte(schema.facilityConstraints.effectiveFrom, constraintsAsOf),
+          or(
+            isNull(schema.facilityConstraints.effectiveTo),
+            gt(schema.facilityConstraints.effectiveTo, constraintsAsOf),
+          ),
+        ),
+      )
       .orderBy(desc(schema.facilityConstraints.version))
       .limit(1);
 
@@ -151,7 +182,16 @@ export class EnvelopesController {
       .where(eq(schema.flexibilityMechanisms.facilityId, facilityId))
       .orderBy(schema.flexibilityMechanisms.code);
 
-    const completeness = await this.telemetryCompleteness(facilityId);
+    const telemetry = await this.telemetryQuality(facilityId);
+    if (telemetry.isStale) {
+      throw new DomainError(
+        'ENVELOPE_BLOCKED_DATA_QUALITY',
+        'Telemetry is stale. Restore a fresh accepted reading before recomputing the envelope.',
+        { last_reading_at: telemetry.lastReadingAt },
+        409,
+      );
+    }
+    const completeness = telemetry.completeness;
 
     const engineInput = {
       mechanisms: mechanisms.map(
@@ -233,17 +273,19 @@ export class EnvelopesController {
         );
       }
 
-      // Supersede the outgoing CURRENT before inserting the new one, so the
-      // partial state "two CURRENT envelopes" never exists.
-      await tx
-        .update(schema.envelopes)
-        .set({ status: 'SUPERSEDED' })
-        .where(
-          and(
-            eq(schema.envelopes.facilityId, facilityId),
-            eq(schema.envelopes.status, 'CURRENT'),
-          ),
-        );
+      // A blocked attempt is retained for review but must not silently erase a
+      // still-current position. Staleness propagation owns invalidation.
+      if (result.status !== 'BLOCKED') {
+        await tx
+          .update(schema.envelopes)
+          .set({ status: 'SUPERSEDED' })
+          .where(
+            and(
+              eq(schema.envelopes.facilityId, facilityId),
+              eq(schema.envelopes.status, 'CURRENT'),
+            ),
+          );
+      }
 
       const [maxVersion] = await tx
         .select({ version: sql<number>`coalesce(max(version), 0)` })
@@ -349,21 +391,37 @@ export class EnvelopesController {
     }));
   }
 
-  private async telemetryCompleteness(facilityId: string): Promise<number> {
+  private async telemetryQuality(facilityId: string): Promise<{
+    completeness: number;
+    lastReadingAt: string | null;
+    isStale: boolean;
+  }> {
     const windowHours = 24;
+    const end = new Date();
     const start = new Date(Date.now() - windowHours * 60 * 60 * 1000);
     const [observed] = await this.db
-      .select({ count: sql<string>`count(*)::text` })
+      .select({
+        count: sql<string>`count(distinct date_trunc('minute', ${schema.telemetryReadings.measuredAt}))::text`,
+        latest: sql<string | null>`max(${schema.telemetryReadings.measuredAt})::text`,
+      })
       .from(schema.telemetryReadings)
       .where(
         and(
           eq(schema.telemetryReadings.facilityId, facilityId),
           eq(schema.telemetryReadings.metricKey, 'facility.active_power_kw'),
+          inArray(schema.telemetryReadings.quality, ['GOOD', 'ESTIMATED']),
           sql`${schema.telemetryReadings.measuredAt} >= ${start.toISOString()}`,
+          sql`${schema.telemetryReadings.measuredAt} <= ${end.toISOString()}`,
         ),
       );
     const expected = (windowHours * 3600) / 60;
-    return Math.min(1, Number(observed?.count ?? '0') / expected);
+    const lastReadingAt = observed?.latest ?? null;
+    return {
+      completeness: Math.min(1, Number(observed?.count ?? '0') / expected),
+      lastReadingAt,
+      isStale:
+        lastReadingAt === null || Date.now() - Date.parse(lastReadingAt) > 180_000,
+    };
   }
 }
 

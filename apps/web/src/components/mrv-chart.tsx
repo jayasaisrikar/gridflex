@@ -1,5 +1,7 @@
 'use client';
 
+import { useId } from 'react';
+
 import {
   Area,
   ComposedChart,
@@ -71,10 +73,16 @@ export function MrvChart({
   const min = Math.min(...values);
   const max = Math.max(...values);
   const pad = (max - min) * 0.15 || 50;
+  const descriptionId = useId();
+  const validReductions = data
+    .map((point) => point.reduction)
+    .filter((value): value is number => value !== null);
+  const missing = data.length - validReductions.length;
+  const description = `MRV chart with ${data.length} intervals and ${missing} missing interval${missing === 1 ? '' : 's'}. Maximum measured reduction is ${validReductions.length > 0 ? Math.max(...validReductions).toFixed(3) : 'not available'} kW. The dashed line is the computed baseline; the solid line is actual measured load.`;
 
   return (
-    <figure style={{ margin: 0 }}>
-      <div style={{ width: '100%', height: 300 }}>
+    <figure style={{ margin: 0 }} aria-describedby={descriptionId}>
+      <div style={{ width: '100%', height: 300 }} aria-hidden="true">
         <ResponsiveContainer>
           <ComposedChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
             <CartesianGrid stroke="var(--color-rule-2)" vertical={false} />
@@ -158,11 +166,10 @@ export function MrvChart({
       </div>
 
       {/* Legend is markup, not canvas — identity never rests on colour alone. */}
-      <figcaption
-        className="row"
-        style={{ marginTop: 'var(--space-sm)', fontSize: 'var(--text-xs)' }}
-      >
-        <span className="row" style={{ gap: 'var(--space-2xs)' }}>
+      <figcaption className="stack" style={{ marginTop: 'var(--space-sm)', fontSize: 'var(--text-xs)' }}>
+        <span className="sr-only" id={descriptionId}>{description}</span>
+        <span className="row">
+          <span className="row" style={{ gap: 'var(--space-2xs)' }}>
           <svg width="18" height="8" aria-hidden="true">
             <line
               x1="0"
@@ -175,19 +182,38 @@ export function MrvChart({
             />
           </svg>
           <span className="muted">Baseline — median of 5 eligible days</span>
+          </span>
+          <span className="row" style={{ gap: 'var(--space-2xs)' }}>
+            <svg width="18" height="8" aria-hidden="true">
+              <line x1="0" y1="4" x2="18" y2="4" stroke="var(--color-accent)" strokeWidth="2" />
+            </svg>
+            <span className="muted">Actual measured load</span>
+          </span>
+          <span className="row" style={{ gap: 'var(--space-2xs)' }}>
+            <svg width="14" height="10" aria-hidden="true">
+              <rect width="14" height="10" fill="var(--color-accent)" fillOpacity="0.16" />
+            </svg>
+            <span className="muted">Delivered energy</span>
+          </span>
         </span>
-        <span className="row" style={{ gap: 'var(--space-2xs)' }}>
-          <svg width="18" height="8" aria-hidden="true">
-            <line x1="0" y1="4" x2="18" y2="4" stroke="var(--color-accent)" strokeWidth="2" />
-          </svg>
-          <span className="muted">Actual measured load</span>
-        </span>
-        <span className="row" style={{ gap: 'var(--space-2xs)' }}>
-          <svg width="14" height="10" aria-hidden="true">
-            <rect width="14" height="10" fill="var(--color-accent)" fillOpacity="0.16" />
-          </svg>
-          <span className="muted">Delivered energy</span>
-        </span>
+        <details className="disclosure">
+          <summary>Inspect MRV chart values</summary>
+          <div className="disclosure__body sheet-wrap">
+            <table className="sheet tnum">
+              <thead><tr><th>Interval</th><th className="num">Baseline (kW)</th><th className="num">Actual (kW)</th><th className="num">Reduction (kW)</th></tr></thead>
+              <tbody>
+                {data.map((point) => (
+                  <tr key={point.minute}>
+                    <td>{point.label}</td>
+                    <td className="num">{point.baseline?.toFixed(3) ?? 'Missing'}</td>
+                    <td className="num">{point.actual?.toFixed(3) ?? 'Missing'}</td>
+                    <td className="num">{point.reduction?.toFixed(3) ?? 'Missing'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
       </figcaption>
     </figure>
   );

@@ -1,9 +1,11 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Chip } from '@/components/chip';
 import { api } from '@/lib/api';
 import { ageFrom, formatKw, requireFacility, whToKwh } from '@/lib/load';
 
 export const dynamic = 'force-dynamic';
+export const metadata: Metadata = { title: 'Overview' };
 
 /**
  * Overview — spec §16.2, now reading live API data.
@@ -16,10 +18,20 @@ export const dynamic = 'force-dynamic';
 export default async function OverviewPage() {
   const facility = await requireFacility();
 
-  const [{ envelope, mechanisms }, quality, { drills }] = await Promise.all([
+  const [
+    { envelope, mechanisms },
+    quality,
+    { drills },
+    { connectors },
+    { passports },
+    telemetry,
+  ] = await Promise.all([
     api.currentEnvelope(facility.id),
     api.telemetryQuality(facility.id),
     api.drills(facility.id),
+    api.connectors(facility.id),
+    api.passports(facility.id),
+    api.telemetry(facility.id),
   ]);
 
   // Group envelope capacity by the evidence that backs it.
@@ -28,9 +40,22 @@ export default async function OverviewPage() {
     byProvenance[mechanism.provenance] += Number(mechanism.reducible_kw);
   }
 
-  const latestDrill = drills[0] ?? null;
+  const latestDrill = drills.find((drill) => drill.status === 'COMPLETED') ?? drills[0] ?? null;
   const mrv = latestDrill ? await api.drill(latestDrill.id).then((d) => d.mrv) : null;
-  const anySimulated = drills.some((drill) => drill.simulation_mode);
+  const anySimulated =
+    quality.contains_simulated_data || drills.some((drill) => drill.simulation_mode);
+  const activeConnectors = connectors.filter((connector) => connector.status === 'ACTIVE');
+  const currentPassport = passports.find((passport) => passport.status === 'ISSUED') ?? null;
+  const currentLoad = telemetry.points
+    .filter((point) => point.quality === 'GOOD' || point.quality === 'ESTIMATED')
+    .at(-1)?.value ?? null;
+  const nextAction = chooseNextAction({
+    activeConnectorCount: activeConnectors.length,
+    qualityReady: quality.meets_drill_threshold,
+    hasEnvelope: Boolean(envelope),
+    hasCompletedDrill: drills.some((drill) => drill.status === 'COMPLETED'),
+    hasPassport: Boolean(currentPassport),
+  });
 
   return (
     <main className="content stack">
@@ -53,12 +78,36 @@ export default async function OverviewPage() {
         </div>
       </header>
 
+      <section className="next-action" aria-labelledby="next-action-title">
+        <div>
+          <span className="panel__title">Next safe action</span>
+          <h2 id="next-action-title">{nextAction.title}</h2>
+          <p>{nextAction.detail}</p>
+        </div>
+        <Link className="btn btn--primary" href={nextAction.href}>{nextAction.label}</Link>
+      </section>
+
+      <section className="readiness-strip" aria-label="Pilot readiness snapshot">
+        <div>
+          <span>Current load</span>
+          <strong className="tnum">{formatKw(currentLoad)} kW</strong>
+        </div>
+        <div>
+          <span>Connector health</span>
+          <strong>{activeConnectors.length}/{connectors.length} active</strong>
+        </div>
+        <div>
+          <span>Passport</span>
+          <strong>{currentPassport ? `Issued · v${currentPassport.version}` : 'Not issued'}</strong>
+        </div>
+      </section>
+
       {/* ---- Capacity by evidence class ---- */}
       <section className="stack" aria-labelledby="capacity-heading">
         <h2 id="capacity-heading" className="panel__title">
           Reducible capacity by evidence class
         </h2>
-        <div className="grid-metrics">
+        <div className="provenance-grid">
           <ProvenancePanel
             label="Tested"
             value={byProvenance.TESTED}
@@ -101,7 +150,7 @@ export default async function OverviewPage() {
               Current envelope {envelope ? `· v${envelope.version}` : ''}
             </span>
             {envelope ? (
-              <Chip kind={envelope.confidence_score >= 0.6 ? 'tested' : 'declared'}>
+              <Chip kind="neutral">
                 Confidence {envelope.confidence_score.toFixed(2)}
               </Chip>
             ) : null}
@@ -193,6 +242,17 @@ export default async function OverviewPage() {
                 {quality.observed_intervals} / {quality.expected_intervals} intervals
               </div>
             </div>
+            <div>
+              <span className="metric__label">Source health</span>
+              <div className="metric__value" style={{ fontSize: 'var(--text-2xl)' }}>
+                {activeConnectors.length}/{connectors.length}
+              </div>
+              <div className="metric__foot">
+                <Chip kind={activeConnectors.length > 0 ? 'tested' : 'violation'}>
+                  {activeConnectors.length > 0 ? 'At least one active' : 'No active connector'}
+                </Chip>
+              </div>
+            </div>
           </div>
 
           <p className="sheet__note" style={{ marginTop: 'var(--space-lg)' }}>
@@ -249,18 +309,70 @@ export default async function OverviewPage() {
             </Link>
           </div>
         </section>
-      ) : (
-        <section className="panel">
-          <div className="panel__head">
-            <span className="panel__title">Next safe action</span>
-          </div>
-          <p style={{ fontSize: 'var(--text-lg)' }}>
-            Run a drill to convert declared capacity into tested capacity.
-          </p>
-        </section>
-      )}
+      ) : null}
     </main>
   );
+}
+
+function chooseNextAction({
+  activeConnectorCount,
+  qualityReady,
+  hasEnvelope,
+  hasCompletedDrill,
+  hasPassport,
+}: {
+  activeConnectorCount: number;
+  qualityReady: boolean;
+  hasEnvelope: boolean;
+  hasCompletedDrill: boolean;
+  hasPassport: boolean;
+}) {
+  if (activeConnectorCount === 0) {
+    return {
+      title: 'Activate a telemetry source',
+      detail: 'Add and test the simulator or a previewed CSV connector before relying on data quality.',
+      href: '/console/connectors',
+      label: 'Open connectors',
+    };
+  }
+  if (!qualityReady) {
+    return {
+      title: 'Restore drill-ready telemetry',
+      detail: 'Review staleness, missing intervals, and quarantined rows before attempting to arm.',
+      href: '/console/telemetry',
+      label: 'Inspect telemetry',
+    };
+  }
+  if (!hasEnvelope) {
+    return {
+      title: 'Compute the first envelope',
+      detail: 'Turn the active safety limits, mechanisms, and telemetry quality into an explainable capacity position.',
+      href: '/console/envelope',
+      label: 'Compute envelope',
+    };
+  }
+  if (!hasCompletedDrill) {
+    return {
+      title: 'Prove the declared capability',
+      detail: 'Run the controlled simulator drill to generate MRV and sealed evidence without physical dispatch.',
+      href: '/console/drills',
+      label: 'Plan a drill',
+    };
+  }
+  if (!hasPassport) {
+    return {
+      title: 'Issue the first Passport',
+      detail: 'Seal the current envelope, safety basis, data quality, and verified drill into a reviewer-ready version.',
+      href: '/console/passport',
+      label: 'Issue Passport',
+    };
+  }
+  return {
+    title: 'Share verified evidence',
+    detail: 'Recompute both hashes, review the carried limitations, and prepare a counterparty export.',
+    href: '/console/passport',
+    label: 'Open Passport',
+  };
 }
 
 function ProvenancePanel({

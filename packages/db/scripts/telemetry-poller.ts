@@ -28,7 +28,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import { kwNumberToMilliKw, milliKwToKwString, simulateBaselineDays } from '@gridflex/engine';
+import { milliKwToKwString, simulateBaselineDays } from '@gridflex/engine';
 import { simulateSafetyReadings } from '@gridflex/forecast';
 
 const here = dirname(fileURLToPath(import.meta.url));

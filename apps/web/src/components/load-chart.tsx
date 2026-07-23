@@ -1,5 +1,7 @@
 'use client';
 
+import { useId } from 'react';
+
 import {
   Area,
   AreaChart,
@@ -41,10 +43,15 @@ export function LoadChart({
   const min = Math.min(...values, minimumSafeLoadKw ?? Infinity);
   const max = Math.max(...values, normalLoadKw ?? -Infinity);
   const pad = (max - min) * 0.1 || 50;
+  const descriptionId = useId();
+  const latest = data.at(-1)?.kw;
+  const crossedFloor = minimumSafeLoadKw !== null && values.some((value) => value < minimumSafeLoadKw);
+  const described = `Facility load chart with ${data.length} accepted points. Range ${Math.min(...values).toFixed(3)} to ${Math.max(...values).toFixed(3)} kW; latest ${latest?.toFixed(3) ?? 'not available'} kW. ${minimumSafeLoadKw === null ? 'No minimum safe load is recorded.' : crossedFloor ? `At least one point is below the ${minimumSafeLoadKw.toFixed(3)} kW minimum safe load.` : `No point is below the ${minimumSafeLoadKw.toFixed(3)} kW minimum safe load.`}`;
+  const tablePoints = data.slice(-120);
 
   return (
-    <figure style={{ margin: 0 }}>
-      <div style={{ width: '100%', height: 280 }}>
+    <figure style={{ margin: 0 }} aria-describedby={descriptionId}>
+      <div style={{ width: '100%', height: 280 }} aria-hidden="true">
         <ResponsiveContainer>
           <AreaChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
             <CartesianGrid stroke="var(--color-rule-2)" vertical={false} />
@@ -123,30 +130,46 @@ export function LoadChart({
         </ResponsiveContainer>
       </div>
 
-      <figcaption
-        className="row"
-        style={{ marginTop: 'var(--space-sm)', fontSize: 'var(--text-xs)' }}
-      >
-        <span className="row" style={{ gap: 'var(--space-2xs)' }}>
+      <figcaption className="stack" style={{ marginTop: 'var(--space-sm)', fontSize: 'var(--text-xs)' }}>
+        <span className="sr-only" id={descriptionId}>{described}</span>
+        <span className="row">
+          <span className="row" style={{ gap: 'var(--space-2xs)' }}>
           <svg width="18" height="8" aria-hidden="true">
             <line x1="0" y1="4" x2="18" y2="4" stroke="var(--color-accent)" strokeWidth="2" />
           </svg>
           <span className="muted">Measured facility load</span>
+          </span>
+          <span className="row" style={{ gap: 'var(--space-2xs)' }}>
+            <svg width="18" height="8" aria-hidden="true">
+              <line
+                x1="0"
+                y1="4"
+                x2="18"
+                y2="4"
+                stroke="var(--color-violation)"
+                strokeWidth="1.5"
+                strokeDasharray="4 4"
+              />
+            </svg>
+            <span className="muted">Minimum safe load — crossing this is a violation</span>
+          </span>
         </span>
-        <span className="row" style={{ gap: 'var(--space-2xs)' }}>
-          <svg width="18" height="8" aria-hidden="true">
-            <line
-              x1="0"
-              y1="4"
-              x2="18"
-              y2="4"
-              stroke="var(--color-violation)"
-              strokeWidth="1.5"
-              strokeDasharray="4 4"
-            />
-          </svg>
-          <span className="muted">Minimum safe load — crossing this is a violation</span>
-        </span>
+        <details className="disclosure">
+          <summary>Inspect recent chart values</summary>
+          <div className="disclosure__body stack">
+            <p className="sheet__note">Showing the most recent {tablePoints.length} of {data.length} accepted points.</p>
+            <div className="sheet-wrap">
+              <table className="sheet tnum">
+                <thead><tr><th>Measured at (UTC)</th><th className="num">Load (kW)</th></tr></thead>
+                <tbody>
+                  {tablePoints.map((point) => (
+                    <tr key={point.t}><td>{point.t}</td><td className="num">{point.kw.toFixed(3)}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </details>
       </figcaption>
     </figure>
   );

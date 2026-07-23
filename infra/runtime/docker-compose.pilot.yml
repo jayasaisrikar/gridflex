@@ -1,0 +1,88 @@
+name: gridflex-pilot
+
+x-app-environment: &app-environment
+  APP_ENV: production
+  LOG_LEVEL: info
+  DATABASE_URL: postgresql://${POSTGRES_USER:-gridflex}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gridflex}
+  AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET}
+  CONNECTOR_ENCRYPTION_KEY: ${CONNECTOR_ENCRYPTION_KEY:?set CONNECTOR_ENCRYPTION_KEY}
+  STORAGE_ROOT: /data/gridflex
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gridflex}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-gridflex}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gridflex} -d ${POSTGRES_DB:-gridflex}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  migrate:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    environment: *app-environment
+    command: ["sh", "-c", "pnpm db:migrate && pnpm db:check"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *app-environment
+      API_PORT: 4000
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+    ports:
+      - "4000:4000"
+    volumes:
+      - application-data:/data/gridflex
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: apps/worker/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *app-environment
+      WORKER_INSTANCE_ID: ${WORKER_INSTANCE_ID:-pilot-worker-1}
+      WORKER_TELEMETRY_STALE_MINUTES: 15
+      WORKER_ENVELOPE_VALIDITY_MINUTES: 75
+    volumes:
+      - application-data:/data/gridflex
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:4000/api/v1}
+    restart: unless-stopped
+    environment:
+      API_INTERNAL_BASE_URL: http://api:4000/api/v1
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  application-data:

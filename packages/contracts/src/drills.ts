@@ -37,16 +37,27 @@ export const drillEventTypeSchema = z.enum([
 export type DrillStatus = z.infer<typeof drillStatusSchema>;
 export type DrillEventType = z.infer<typeof drillEventTypeSchema>;
 
+const positivePowerSchema = powerKwSchema.refine(
+  (value) => Number(value) > 0,
+  'Must be greater than zero',
+);
+
 export const createDrillRequestSchema = z
   .object({
     name: z.string().min(1).max(200),
-    requested_reduction_kw: powerKwSchema,
+    requested_reduction_kw: positivePowerSchema,
     planned_start_at: utcTimestampSchema,
     planned_end_at: utcTimestampSchema,
     envelope_id: uuidSchema.optional(),
     operator_notes: z.string().max(2000).optional(),
+    /**
+     * Optional planned ramp. When omitted the API derives a conservative ramp
+     * from the selected envelope's response time. This is a plan input, never a
+     * way to override the facility constraint.
+     */
+    planned_ramp_kw_per_min: positivePowerSchema.optional(),
     /** V1 ships simulated drills only; real dispatch is out of scope (spec §2.2). */
-    simulation_mode: z.boolean().default(true),
+    simulation_mode: z.literal(true).default(true),
   })
   .refine(
     (drill) => Date.parse(drill.planned_end_at) > Date.parse(drill.planned_start_at),
@@ -100,6 +111,18 @@ export const emergencyStopRequestSchema = z.object({
   reason_detail: z.string().max(2000).optional(),
 });
 
+export const clearEmergencyStopRequestSchema = z.object({
+  clear_note: z.string().min(1).max(2000),
+});
+
+export const drillTransitionResponseSchema = z.object({
+  drill_id: uuidSchema,
+  previous_status: drillStatusSchema,
+  status: drillStatusSchema,
+  event_id: z.string(),
+  occurred_at: utcTimestampSchema,
+});
+
 export const drillEventSchema = z.object({
   id: z.string(),
   event_type: drillEventTypeSchema,
@@ -136,4 +159,8 @@ export const mrvReportSchema = z.object({
 
 export type CreateDrillRequest = z.infer<typeof createDrillRequestSchema>;
 export type ArmIntentResponse = z.infer<typeof armIntentResponseSchema>;
+export type ArmConfirmRequest = z.infer<typeof armConfirmRequestSchema>;
+export type AbortDrillRequest = z.infer<typeof abortDrillRequestSchema>;
+export type EmergencyStopRequest = z.infer<typeof emergencyStopRequestSchema>;
+export type ClearEmergencyStopRequest = z.infer<typeof clearEmergencyStopRequestSchema>;
 export type MrvReport = z.infer<typeof mrvReportSchema>;

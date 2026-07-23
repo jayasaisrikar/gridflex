@@ -5,6 +5,7 @@ import helmet from '@fastify/helmet';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import { Logger } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { AppModule } from './app.module.js';
 import { ErrorFilter } from './common/errors/error.filter.js';
 
@@ -44,11 +45,32 @@ async function bootstrap(): Promise<void> {
     methods: ['GET', 'POST', 'PATCH', 'DELETE'],
   });
 
-  // Blanket limit; auth endpoints tighten this further (spec §18).
+  // Per-session limits prevent the server-rendered web tier from pooling every
+  // operator behind one internal IP. Public auth mutations remain deliberately
+  // tighter to slow credential guessing (spec §18).
   await app.register(rateLimit, {
-    max: 300,
+    max: (request) => isPublicAuthMutation(request) ? 10 : 600,
     timeWindow: '1 minute',
+    keyGenerator: (request) => {
+      const authorization = request.headers.authorization;
+      const subject = authorization
+        ? createHash('sha256').update(authorization).digest('base64url')
+        : request.ip;
+      const routeGroup = isPublicAuthMutation(request)
+        ? new URL(request.url, 'http://gridflex.internal').pathname
+        : 'api';
+      return `${routeGroup}:${subject}`;
+    },
     allowList: (request) => request.url.startsWith('/api/v1/health'),
+    errorResponseBuilder: (request, context) => ({
+      statusCode: 429,
+      error: {
+        code: 'RATE_LIMITED',
+        message: `Request limit exceeded. Retry in ${context.after}.`,
+        details: { retry_after: context.after },
+        request_id: String(request.id),
+      },
+    }),
   });
 
   const port = Number(process.env.API_PORT ?? 4000);
@@ -56,6 +78,16 @@ async function bootstrap(): Promise<void> {
 
   // Never log the connection string or any secret (spec §18).
   new Logger('Bootstrap').log(`GridFlex API listening on port ${port}`);
+}
+
+function isPublicAuthMutation(request: { method: string; url: string }): boolean {
+  if (request.method !== 'POST') return false;
+  const pathname = new URL(request.url, 'http://gridflex.internal').pathname;
+  return new Set([
+    '/api/v1/auth/login',
+    '/api/v1/auth/refresh',
+    '/api/v1/auth/bootstrap-owner',
+  ]).has(pathname);
 }
 
 await bootstrap();

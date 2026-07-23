@@ -1,20 +1,30 @@
+import type { Metadata } from 'next';
 import { Chip } from '@/components/chip';
+import { CsvImportControl } from '@/components/csv-import-control';
 import { LoadChart } from '@/components/load-chart';
 import { api } from '@/lib/api';
 import { ageFrom, requireFacility } from '@/lib/load';
 
 export const dynamic = 'force-dynamic';
+export const metadata: Metadata = { title: 'Telemetry' };
 
 export default async function TelemetryPage() {
   const facility = await requireFacility();
-  const [series, quality] = await Promise.all([
+  const [series, quality, { connectors }, { quarantine }] = await Promise.all([
     api.telemetry(facility.id),
     api.telemetryQuality(facility.id),
+    api.connectors(facility.id),
+    api.quarantine(facility.id),
   ]);
 
-  const values = series.points.map((point) => Number(point.value));
+  const acceptedPoints = series.points.filter(
+    (point) => point.quality === 'GOOD' || point.quality === 'ESTIMATED',
+  );
+  const excludedPointCount = series.points.length - acceptedPoints.length;
+  const values = acceptedPoints.map((point) => Number(point.value));
   const latest = values.at(-1) ?? null;
   const floor = facility.minimum_safe_load_kw ? Number(facility.minimum_safe_load_kw) : null;
+  const passportPilotReady = quality.completeness >= 0.9 && !quality.is_stale;
 
   return (
     <main className="content stack">
@@ -27,7 +37,7 @@ export default async function TelemetryPage() {
             </p>
           </div>
           <div className="row">
-            <Chip kind="simulated">Simulated</Chip>
+            {quality.contains_simulated_data ? <Chip kind="simulated">Simulated data present</Chip> : null}
             {quality.is_stale ? (
               <Chip kind="violation">Stale</Chip>
             ) : (
@@ -82,17 +92,31 @@ export default async function TelemetryPage() {
       <section className="panel">
         <div className="panel__head">
           <span className="panel__title">Facility load · 24 hours</span>
-          <span className="sheet__note tnum">{series.points.length} points</span>
+          <div className="row">
+            <span className="sheet__note tnum">{acceptedPoints.length} accepted points</span>
+            {series.truncated ? (
+              <Chip kind="declared">Latest 5,000 samples shown</Chip>
+            ) : null}
+            {excludedPointCount > 0 ? (
+              <Chip kind="declared">{excludedPointCount} suspect excluded</Chip>
+            ) : null}
+          </div>
         </div>
-        {series.points.length === 0 ? (
+        {acceptedPoints.length === 0 ? (
           <p className="muted">No telemetry in this window.</p>
         ) : (
           <LoadChart
-            points={series.points}
+            points={acceptedPoints}
             minimumSafeLoadKw={floor}
             normalLoadKw={facility.normal_load_kw ? Number(facility.normal_load_kw) : null}
           />
         )}
+        {series.truncated ? (
+          <p className="sheet__note" role="status" style={{ marginTop: 'var(--space-md)' }}>
+            This 24-hour window contains more than 5,000 samples. The chart and
+            observed range use the latest 5,000; earlier samples are omitted.
+          </p>
+        ) : null}
       </section>
 
       <section className="panel">
@@ -121,11 +145,13 @@ export default async function TelemetryPage() {
                 </td>
               </tr>
               <tr>
-                <th scope="row">Completeness for Passport</th>
-                <td className="num">≥ 95% over 14d</td>
-                <td className="num">{(quality.completeness * 100).toFixed(1)}% over 1d</td>
+                <th scope="row">Completeness for Passport (pilot)</th>
+                <td className="num">≥ 90% over 24h, fresh</td>
+                <td className="num">{(quality.completeness * 100).toFixed(1)}% over 24h</td>
                 <td>
-                  <Chip kind="declared">Window too short</Chip>
+                  <Chip kind={passportPilotReady ? 'tested' : 'violation'}>
+                    {passportPilotReady ? 'Pass' : 'Blocked'}
+                  </Chip>
                 </td>
               </tr>
               <tr>
@@ -142,10 +168,61 @@ export default async function TelemetryPage() {
           </table>
         </div>
         <p className="sheet__note" style={{ marginTop: 'var(--space-md)' }}>
-          A 14-day window is required for a production-quality Passport. This
-          deployment has 24 hours of history, so that gate cannot pass yet — it is
-          shown as unmet rather than hidden.
+          Pilot issuance uses a fresh 24-hour window at 90% completeness. A
+          production certification profile should extend this to at least 14 days
+          and a stricter completeness target; that profile is not claimed here.
         </p>
+      </section>
+
+      <section className="panel stack" id="csv-import" aria-labelledby="csv-import-title">
+        <div className="panel__head">
+          <div>
+            <span className="panel__title" id="csv-import-title">Previewed CSV import</span>
+            <p className="sheet__note" style={{ marginTop: 'var(--space-2xs)' }}>
+              Required columns: metric_key, measured_at, value, unit. Optional:
+              quality and source_sequence.
+            </p>
+          </div>
+          <Chip kind="neutral">Preview before write</Chip>
+        </div>
+        <CsvImportControl facilityId={facility.id} connectors={connectors} />
+      </section>
+
+      <section className="stack" aria-labelledby="quarantine-title">
+        <div className="section-intro">
+          <div>
+            <h2 id="quarantine-title">Quarantine</h2>
+            <p>Rejected or conflicting rows remain inspectable and never enter calculations.</p>
+          </div>
+          <Chip kind={quarantine.length > 0 ? 'declared' : 'tested'}>
+            {quarantine.length > 0 ? `${quarantine.length} review` : 'No rejected rows'}
+          </Chip>
+        </div>
+        {quarantine.length === 0 ? (
+          <div className="panel empty-state">
+            <span className="empty-state__mark" aria-hidden="true">Q0</span>
+            <h2>No quarantined readings</h2>
+            <p>Conflicting duplicates and invalid CSV rows will appear here with a reason.</p>
+          </div>
+        ) : (
+          <div className="mechanism-list">
+            {quarantine.map((row) => (
+              <details className="disclosure" key={row.id}>
+                <summary>
+                  <span>
+                    <strong>{row.reason_code.replace(/_/g, ' ').toLowerCase()}</strong>
+                    <small className="sheet__note">{row.received_at}</small>
+                  </span>
+                  <Chip kind="declared">Quarantined</Chip>
+                </summary>
+                <div className="disclosure__body stack">
+                  <p>{row.reason_detail ?? 'No additional reason detail was recorded.'}</p>
+                  <pre className="hash">{JSON.stringify(row.raw_payload, null, 2)}</pre>
+                </div>
+              </details>
+            ))}
+          </div>
+        )}
       </section>
     </main>
   );

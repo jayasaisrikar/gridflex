@@ -2,7 +2,13 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
 import { schema } from '@gridflex/db/client';
 import type { Database } from '@gridflex/db/client';
-import { DomainError, roleHasPermission, type Permission, type UserRole } from '@gridflex/contracts';
+import {
+  DomainError,
+  roleHasPermission,
+  uuidSchema,
+  type Permission,
+  type UserRole,
+} from '@gridflex/contracts';
 import { DATABASE } from '../database/database.module.js';
 
 /**
@@ -27,6 +33,11 @@ export class OrgScopeService {
     facilityId: string,
     permission: Permission,
   ): Promise<{ facilityId: string; organizationId: string; role: UserRole }> {
+    // Reject before the UUID reaches PostgreSQL. Besides avoiding a driver 500,
+    // this keeps malformed and unauthorized identifiers equally opaque.
+    if (!uuidSchema.safeParse(facilityId).success) {
+      throw new DomainError('NOT_FOUND', 'Facility not found', undefined, 404);
+    }
     const [row] = await this.db
       .select({
         facilityId: schema.facilities.id,

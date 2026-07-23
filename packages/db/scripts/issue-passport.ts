@@ -18,7 +18,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import { assemblePassport, type AssemblePassportInput } from '@gridflex/engine';
+import { sealDocument, type CanonicalInput } from '@gridflex/engine';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const FACILITY_SLUG = 'lone-star-compute';
@@ -136,57 +136,131 @@ async function main(): Promise<void> {
       ).rows[0]?.v ?? 0) + 1;
 
     const passportId = (await client.query('select gen_random_uuid() id')).rows[0].id;
+    const issuedAt = rfc3339(new Date());
 
-    const input: AssemblePassportInput = {
+    function ratioString(value: string | number): string {
+      return Number(value).toFixed(4);
+    }
+
+    function stringArray(value: unknown): string[] {
+      return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+    }
+
+    function blockedReasons(value: unknown): { code: string; detail: string }[] {
+      return Array.isArray(value)
+        ? value.filter(
+            (item): item is { code: string; detail: string } =>
+              typeof item === 'object' && item !== null && 'code' in item && 'detail' in item,
+          )
+        : [];
+    }
+
+    const hasAssociatedDrill = drills.some(
+      (d: { status: string }) => d.status === 'COMPLETED',
+    );
+    const limitations: string[] = [
+      'Pilot evidence uses the available telemetry window; production certification targets at least 14 days of coverage.',
+      'GridFlex does not autonomously dispatch facility equipment; every drill requires an operator.',
+    ];
+    if (containsSimulated) {
+      limitations.push(
+        'This Passport contains simulated data and is suitable for pilot evaluation, not a production dispatch claim.',
+      );
+    }
+    if (!hasAssociatedDrill) {
+      limitations.push(
+        'No completed drill is associated with this version; capacity is modeled or declared rather than test-verified.',
+      );
+    }
+    if (mechanisms.some((m: { provenance: string }) => m.provenance !== 'TESTED')) {
+      limitations.push(
+        'At least one mechanism remains declared or modeled and must not be described as tested.',
+      );
+    }
+    const completeness = Number(envelope.telemetry_completeness);
+    if (completeness < 0.95) {
+      limitations.push(
+        'Telemetry completeness passes the pilot threshold but remains below the 95% production-quality target.',
+      );
+    }
+
+    const document = {
       id: passportId,
       facility_id: facility.id,
       version: nextVersion,
       evidence_bundle_id: evidence.id,
       evidence_sha256: evidence.canonical_sha256,
-      issued_at: rfc3339(new Date()),
+      issued_at: issuedAt,
       facility: {
         name: facility.name,
         timezone: facility.timezone,
         region: facility.region,
         market: facility.market,
       },
+      methodology_version: envelope.methodology_version,
       envelope: {
         id: envelope.id,
+        facility_id: facility.id,
         version: envelope.version,
-        status: envelope.status,
+        status: 'CURRENT' as const,
+        as_of: rfc3339(envelope.as_of),
+        valid_until: envelope.valid_until ? rfc3339(envelope.valid_until) : null,
         total_reducible_kw: envelope.total_reducible_kw,
-        aggregate_ramp_kw_per_min: envelope.aggregate_ramp_kw_per_min,
-        sustainable_duration_min: envelope.sustainable_duration_min,
         response_time_seconds: envelope.response_time_seconds,
-        confidence_score: Number(envelope.confidence_score),
-        telemetry_completeness: Number(envelope.telemetry_completeness),
+        sustainable_duration_min: envelope.sustainable_duration_min,
+        aggregate_ramp_kw_per_min: envelope.aggregate_ramp_kw_per_min,
+        rebound_peak_kw: envelope.rebound_peak_kw,
+        rebound_duration_min: envelope.rebound_duration_min,
+        confidence_score: ratioString(envelope.confidence_score),
+        telemetry_completeness: ratioString(envelope.telemetry_completeness),
         methodology_version: envelope.methodology_version,
         constraints_version: envelope.constraints_version,
+        blocked_reasons: blockedReasons(envelope.blocked_reasons),
         mechanisms: mechanisms.map(
-          (m: { code: string; name: string; provenance: string; reducible_kw: string; test_count: number | null }) => ({
-            code: m.code,
-            name: m.name,
-            provenance: m.provenance as 'DECLARED' | 'MODELED' | 'TESTED',
+          (m: {
+            mechanism_id: string;
+            code: string;
+            name: string;
+            provenance: string;
+            reducible_kw: string;
+            response_time_seconds: number;
+            ramp_kw_per_min: string;
+            duration_min: number;
+            rebound_peak_kw: string | null;
+            rebound_duration_min: number | null;
+            confidence_score: string;
+            evidence_refs: unknown;
+            notes: string | null;
+          }) => ({
+            mechanism_id: m.mechanism_id,
+            mechanism_code: m.code,
+            mechanism_name: m.name,
+            provenance: m.provenance,
             reducible_kw: m.reducible_kw,
-            test_count: m.test_count ?? 0,
+            response_time_seconds: m.response_time_seconds,
+            ramp_kw_per_min: m.ramp_kw_per_min,
+            duration_min: m.duration_min,
+            rebound_peak_kw: m.rebound_peak_kw,
+            rebound_duration_min: m.rebound_duration_min,
+            confidence_score: ratioString(m.confidence_score),
+            evidence_refs: stringArray(m.evidence_refs),
+            notes: m.notes,
           }),
         ),
+        created_at: rfc3339(envelope.created_at),
       },
       safety: {
         minimum_safe_load_kw: constraints.minimum_safe_load_kw,
         maximum_curtailment_kw: constraints.maximum_curtailment_kw,
         maximum_ramp_kw_per_min: constraints.maximum_ramp_kw_per_min,
         maximum_duration_min: constraints.maximum_duration_min,
-        excluded_workloads: Array.isArray(constraints.excluded_workloads)
-          ? constraints.excluded_workloads
-          : [],
+        excluded_workloads: stringArray(constraints.excluded_workloads),
         constraints_version: constraints.version,
       },
       data_quality: {
-        completeness: Number(envelope.telemetry_completeness),
+        completeness: completeness.toFixed(4),
         window_start: rfc3339(telemetry.lo) ?? '1970-01-01T00:00:00Z',
         window_end: rfc3339(telemetry.hi) ?? '1970-01-01T00:00:00Z',
-        modeling_window_days: telemetry.days ?? 0,
         connector_provenance: connectors.map(
           (c: { connector_type: string; name: string; last_success_at: Date | null }) => ({
             connector_type: c.connector_type,
@@ -217,14 +291,16 @@ async function main(): Promise<void> {
           simulation_mode: d.simulation_mode,
         }),
       ),
-      has_external_review: false,
-    };
+      limitations,
+      notes: null,
+    } satisfies CanonicalInput as { readonly [key: string]: CanonicalInput };
 
-    const passport = assemblePassport(input);
+    const sealed = sealDocument(document);
+    const passportSha256 = sealed.sha256;
 
     const existing = await client.query(
       'select id, version from passports where passport_sha256 = $1',
-      [passport.sha256],
+      [passportSha256],
     );
     if ((existing.rowCount ?? 0) > 0) {
       console.log(
@@ -251,8 +327,8 @@ async function main(): Promise<void> {
           envelope.id,
           evidence.id,
           nextVersion,
-          JSON.stringify(passport.sealed.canonicalJson),
-          passport.sha256,
+          JSON.stringify(sealed.canonicalJson),
+          passportSha256,
         ],
       );
 
@@ -269,12 +345,12 @@ async function main(): Promise<void> {
     }
 
     console.log(`Issued Passport v${nextVersion}`);
-    console.log(`  sha256      ${passport.sha256}`);
+    console.log(`  sha256      ${passportSha256}`);
     console.log(`  evidence    ${evidence.canonical_sha256}`);
     console.log(`  reducible   ${envelope.total_reducible_kw} kW`);
     console.log(`  simulated   ${containsSimulated}`);
-    console.log(`  limitations ${passport.limitations.length}`);
-    for (const limitation of passport.limitations) {
+    console.log(`  limitations ${limitations.length}`);
+    for (const limitation of limitations) {
       console.log(`    - ${limitation}`);
     }
   } finally {

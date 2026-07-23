@@ -58,6 +58,7 @@ export const MAX_BATCH_READINGS = 10_000;
 
 export const telemetryBatchRequestSchema = z.object({
   source_key: z.string().min(1).max(128),
+  connector_id: uuidSchema.optional(),
   readings: z.array(telemetryReadingInputSchema).min(1).max(MAX_BATCH_READINGS),
 });
 
@@ -105,6 +106,51 @@ export const csvPreviewResponseSchema = z.object({
   preview_token: z.string(),
 });
 
+/**
+ * The MVP accepts CSV as text in a JSON request rather than trusting a client
+ * filename or multipart content type. A confirmation resubmits the same bytes
+ * together with the short-lived preview token, which binds the operator's
+ * approval to exactly the rows they reviewed.
+ */
+export const MAX_CSV_BYTES = 5 * 1024 * 1024;
+
+export const csvTelemetryRequestSchema = z
+  .object({
+    source_key: z.string().trim().min(1).max(128),
+    connector_id: uuidSchema.optional(),
+    csv: z
+      .string()
+      .min(1)
+      // The API also enforces the exact UTF-8 byte count. This client-side cap
+      // prevents ordinary oversized payloads without coupling contracts to Node.
+      .max(MAX_CSV_BYTES, 'CSV exceeds 5 MiB'),
+    confirm: z.boolean().default(false),
+    preview_token: z.string().min(1).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.confirm && !value.preview_token) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['preview_token'],
+        message: 'A preview token is required to confirm an import',
+      });
+    }
+  });
+
+export const telemetryQuarantineRecordSchema = z.object({
+  id: z.string(),
+  facility_id: uuidSchema.nullable(),
+  connector_id: uuidSchema.nullable(),
+  sync_run_id: uuidSchema.nullable(),
+  received_at: utcTimestampSchema,
+  reason_code: z.string(),
+  reason_detail: z.string().nullable(),
+  raw_payload: z.record(z.unknown()),
+  resolved_at: utcTimestampSchema.nullable(),
+});
+
 export type TelemetryBatchRequest = z.infer<typeof telemetryBatchRequestSchema>;
 export type TelemetryBatchResponse = z.infer<typeof telemetryBatchResponseSchema>;
 export type TelemetryQualitySummary = z.infer<typeof telemetryQualitySummarySchema>;
+export type CsvTelemetryRequest = z.infer<typeof csvTelemetryRequestSchema>;
+export type CsvPreviewResponse = z.infer<typeof csvPreviewResponseSchema>;

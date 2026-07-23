@@ -23,21 +23,28 @@ export interface PoolOptions {
 }
 
 /**
+ * Set the timeout during PostgreSQL's startup handshake. Running an un-awaited
+ * SET from Pool's `connect` event races the first application query on the same
+ * client (and is deprecated by node-postgres), so the option belongs here.
+ */
+export function statementTimeoutConnectionOption(statementTimeoutMs: number): string {
+  if (!Number.isSafeInteger(statementTimeoutMs) || statementTimeoutMs < 0) {
+    throw new Error('statementTimeoutMs must be a non-negative safe integer');
+  }
+  return `-c statement_timeout=${statementTimeoutMs}`;
+}
+
+/**
  * One pool per process — never per request (spec 7.4).
  */
 export function createPool(options: PoolOptions): pg.Pool {
+  const statementTimeoutMs = options.statementTimeoutMs ?? 30_000;
   const pool = new Pool({
     connectionString: options.connectionString,
     max: options.max ?? 10,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 5_000,
-  });
-
-  // Ordinary request connections get a 30s statement timeout. Long-running export
-  // jobs opt into a higher timeout explicitly on their own connection.
-  const statementTimeoutMs = options.statementTimeoutMs ?? 30_000;
-  pool.on('connect', (client) => {
-    void client.query(`SET statement_timeout = ${statementTimeoutMs}`);
+    options: statementTimeoutConnectionOption(statementTimeoutMs),
   });
 
   return pool;

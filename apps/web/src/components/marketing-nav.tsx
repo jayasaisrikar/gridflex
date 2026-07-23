@@ -7,7 +7,7 @@ const links = [
   { href: '#product', label: 'Product' },
   { href: '#passport', label: 'Flexibility Passport' },
   { href: '#how-it-works', label: 'How it works' },
-  { href: '#ai', label: 'AI layer' },
+  { href: '#ai', label: 'Forecast R&D' },
   { href: '#security', label: 'Security' },
   { href: '#use-cases', label: 'Use cases' },
   { href: '#architecture', label: 'Architecture' },

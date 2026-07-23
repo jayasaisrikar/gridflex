@@ -1,11 +1,23 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Chip, type ChipKind } from '@/components/chip';
+import { DrillArmControl } from '@/components/drill-arm-control';
 import { MrvChart } from '@/components/mrv-chart';
+import { OperatorForm } from '@/components/operator-form';
 import { api, ApiError } from '@/lib/api';
 import { formatKw, requireFacility, whToKwh } from '@/lib/load';
+import {
+  abortDrillAction,
+  emergencyStopAction,
+  startDrillAction,
+  stopDrillAction,
+  validateDrillAction,
+  verifyDrillAction,
+} from '../../../actions';
 
 export const dynamic = 'force-dynamic';
+export const metadata: Metadata = { title: 'Drill proof chain' };
 
 /**
  * The proof chain — spec §16.3.
@@ -20,6 +32,7 @@ type StageSpec = {
   readonly title: string;
   readonly eventType: string | null;
   readonly detail: (context: Context) => string;
+  readonly verified?: (context: Context) => boolean;
 };
 
 type Context = {
@@ -41,21 +54,21 @@ const STAGES: readonly StageSpec[] = [
     title: 'Validation',
     eventType: 'VALIDATED',
     detail: () =>
-      'Plan checked against facility limits: minimum safe load, maximum curtailment, ramp rate, and maximum duration.',
+      'A safety-validation event was recorded. The event reason below identifies the engine decision; no editable status flag is treated as proof.',
   },
   {
     stage: '3.0',
     title: 'Operator arming',
     eventType: 'ARMED',
     detail: () =>
-      'Two-step arm. A single-use challenge carrying the exact constraint snapshot was issued, then confirmed by typed phrase within its 5-minute window.',
+      'An arming event exists. API-created drills write this only after a single-use challenge with a frozen constraint snapshot is confirmed.',
   },
   {
     stage: '4.0',
     title: 'Execution',
     eventType: 'STARTED',
     detail: () =>
-      'Sustain window held. Setpoint never fell below the minimum safe load; no thermal or ramp violation recorded.',
+      'Execution start was recorded. This event proves only that execution began; delivery and safety outcomes require completion telemetry and MRV.',
   },
   {
     stage: '5.0',
@@ -63,13 +76,14 @@ const STAGES: readonly StageSpec[] = [
     eventType: 'COMPLETED',
     detail: (c) =>
       c.mrv
-        ? `${(c.mrv.telemetry_completeness * 100).toFixed(1)}% complete, longest gap ${c.mrv.maximum_gap_intervals} intervals. Readings are append-only and cannot be revised.`
-        : 'Telemetry recorded to append-only storage.',
+        ? `${(c.mrv.telemetry_completeness * 100).toFixed(1)}% complete, longest gap ${c.mrv.maximum_gap_intervals} intervals. The MRV input refers to append-only readings.`
+        : 'A completion event exists, but no MRV quality summary is available yet.',
   },
   {
     stage: '6.0',
     title: 'MRV',
     eventType: 'MRV_GENERATED',
+    verified: (c) => Boolean(c.mrv),
     detail: (c) =>
       c.mrv
         ? `Delivered ${whToKwh(c.mrv.delivered_energy_wh)} kWh against ${whToKwh(c.mrv.committed_energy_wh)} kWh committed. Summed in exact integer watt-hours; no interval interpolated.`
@@ -79,6 +93,7 @@ const STAGES: readonly StageSpec[] = [
     stage: '7.0',
     title: 'Evidence hash',
     eventType: null,
+    verified: (c) => Boolean(c.evidence),
     detail: (c) =>
       c.evidence
         ? `Canonical JSON sealed under ${c.evidence.schema_version}. SHA-256 computed over the canonical bytes and stored with the document.`
@@ -105,7 +120,7 @@ export default async function DrillDetailPage({
   try {
     data = await api.drill(drillId);
   } catch (error) {
-    if (error instanceof ApiError && error.status === 404) notFound();
+    if (error instanceof ApiError && (error.status === 400 || error.status === 404)) notFound();
     throw error;
   }
 
@@ -131,6 +146,8 @@ export default async function DrillDetailPage({
           </div>
         </div>
       </header>
+
+      <OperationalControls drill={drill} />
 
       {mrv ? (
         <section className="grid-metrics" aria-label="Drill result">
@@ -192,10 +209,13 @@ export default async function DrillDetailPage({
             const event = spec.eventType ? eventByType.get(spec.eventType) : undefined;
             const reached =
               spec.eventType === null ? Boolean(evidence) : Boolean(event);
-            const state = reached ? 'done' : 'pending';
-            const chip: { kind: ChipKind; label: string } = reached
-              ? { kind: 'tested', label: 'Recorded' }
-              : { kind: 'declared', label: 'Not reached' };
+            const verified = reached && Boolean(spec.verified?.(context));
+            const state = verified ? 'done' : reached ? 'recorded' : 'pending';
+            const chip: { kind: ChipKind; label: string } = !reached
+              ? { kind: 'declared', label: 'Not reached' }
+              : verified
+                ? { kind: 'tested', label: 'Verified' }
+                : { kind: 'neutral', label: 'Recorded' };
 
             return (
               <li key={spec.stage} className="chain__step" data-state={state}>
@@ -210,6 +230,7 @@ export default async function DrillDetailPage({
                   <p className="chain__detail">{spec.detail(context)}</p>
                   <div className="chain__meta">
                     {event ? <span>{event.occurred_at}</span> : null}
+                    {event ? <span>{event.actor_service ?? actorLabel(event.actor_user_id)}</span> : null}
                     {event?.reason_code ? <span>{event.reason_code}</span> : null}
                     {!reached ? <span>no event recorded</span> : null}
                   </div>
@@ -275,6 +296,161 @@ export default async function DrillDetailPage({
       </section>
     </main>
   );
+}
+
+function OperationalControls({
+  drill,
+}: {
+  drill: Awaited<ReturnType<typeof api.drill>>['drill'];
+}) {
+  if (['COMPLETED', 'FAILED', 'ABORTED', 'CANCELLED'].includes(drill.status)) {
+    return (
+      <section className="panel">
+        <div className="panel__head">
+          <span className="panel__title">Operational state</span>
+          <Chip kind={drill.status === 'COMPLETED' ? 'tested' : 'violation'}>
+            {drill.status}
+          </Chip>
+        </div>
+        <p className="sheet__note">
+          This drill is terminal. Its event chain is read-only; plan another drill to
+          run a new test.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="panel stack" aria-labelledby="operational-action-title">
+      <div className="panel__head">
+        <div>
+          <span className="panel__title" id="operational-action-title">Next controlled action</span>
+          <p className="sheet__note" style={{ marginTop: 'var(--space-2xs)' }}>
+            Current state: {drill.status}. Only the state machine’s next valid
+            transition is offered.
+          </p>
+        </div>
+        {drill.simulation_mode ? <Chip kind="simulated">Simulator only</Chip> : null}
+      </div>
+
+      {drill.status === 'DRAFT' ? (
+        <OperatorForm
+          action={validateDrillAction}
+          buttonLabel="Validate safety gates"
+          pendingLabel="Validating plan…"
+          hidden={{ drill_id: drill.id }}
+        >
+          <p>
+            Check the requested reduction, duration, ramp, current envelope,
+            telemetry freshness, and active emergency-stop state.
+          </p>
+        </OperatorForm>
+      ) : null}
+
+      {drill.status === 'READY' ? <DrillArmControl drillId={drill.id} /> : null}
+
+      {drill.status === 'ARMED' ? (
+        <div className="workbench-grid">
+          <OperatorForm
+            action={startDrillAction}
+            buttonLabel="Start drill"
+            pendingLabel="Starting drill…"
+            hidden={{ drill_id: drill.id }}
+          >
+            <p>
+              The challenge was confirmed. Starting is the final explicit operator
+              action before execution begins.
+            </p>
+          </OperatorForm>
+          <OperatorForm
+            action={abortDrillAction}
+            buttonLabel="Abort armed drill"
+            pendingLabel="Recording abort…"
+            buttonTone="stop"
+            hidden={{ drill_id: drill.id }}
+          >
+            <div className="field">
+              <label htmlFor="armed-abort-reason">Abort reason code</label>
+              <input
+                id="armed-abort-reason"
+                name="reason_code"
+                required
+                defaultValue="OPERATOR_ABORT"
+              />
+              <p className="field__help">The reason is appended to the evidence timeline.</p>
+            </div>
+          </OperatorForm>
+        </div>
+      ) : null}
+
+      {drill.status === 'RUNNING' ? (
+        <div className="workbench-grid">
+          <OperatorForm
+            action={stopDrillAction}
+            buttonLabel="Complete sustain window"
+            pendingLabel="Completing drill…"
+            hidden={{ drill_id: drill.id }}
+          >
+            <p>Stop the planned execution and begin evidence and MRV processing.</p>
+          </OperatorForm>
+          <OperatorForm
+            action={emergencyStopAction}
+            buttonLabel="Emergency stop"
+            pendingLabel="Activating stop…"
+            buttonTone="stop"
+            hidden={{ drill_id: drill.id }}
+          >
+            <p>
+              Stop execution immediately. A standard audit reason is already
+              supplied; add context only when it helps the operational handoff.
+            </p>
+            <div className="field">
+              <label htmlFor="emergency-reason">Emergency reason code</label>
+              <input
+                id="emergency-reason"
+                name="reason_code"
+                defaultValue="OPERATOR_EMERGENCY_STOP"
+              />
+              <p className="field__help">
+                The standard code is ready to submit; change it only when a runbook
+                requires a more specific code.
+              </p>
+            </div>
+            <div className="field">
+              <label htmlFor="emergency-detail">Operator detail (optional)</label>
+              <textarea
+                id="emergency-detail"
+                name="reason_detail"
+                defaultValue="Operator activated emergency stop from the drill workbench."
+              />
+              <p className="field__help">
+                A safe default is prefilled. Edit or clear it without delaying the stop.
+              </p>
+            </div>
+          </OperatorForm>
+        </div>
+      ) : null}
+
+      {drill.status === 'VERIFYING' ? (
+        <OperatorForm
+          action={verifyDrillAction}
+          buttonLabel="Verify evidence"
+          pendingLabel="Verifying evidence…"
+          hidden={{ drill_id: drill.id }}
+        >
+          <p>
+            Seal the completed simulator result, MRV calculation, and immutable
+            timeline into the drill’s evidence bundle.
+          </p>
+        </OperatorForm>
+      ) : null}
+    </section>
+  );
+}
+
+function actorLabel(actorUserId: string | null) {
+  if (!actorUserId) return 'system';
+  return `operator …${actorUserId.slice(-8)}`;
 }
 
 function Readout({

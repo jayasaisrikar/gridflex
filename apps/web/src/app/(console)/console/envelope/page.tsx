@@ -1,9 +1,13 @@
+import type { Metadata } from 'next';
 import { Chip, Provenance } from '@/components/chip';
 import { MechanismBars } from '@/components/mechanism-bars';
+import { OperatorForm } from '@/components/operator-form';
 import { api } from '@/lib/api';
 import { formatKw, requireFacility } from '@/lib/load';
+import { recomputeEnvelopeAction } from '../../actions';
 
 export const dynamic = 'force-dynamic';
+export const metadata: Metadata = { title: 'Envelope' };
 
 /**
  * Envelope — spec §16 / §12.
@@ -24,11 +28,21 @@ export default async function EnvelopePage() {
           <p className="pagehead__sub">No envelope has been computed.</p>
         </header>
         <section className="panel">
-          <p>
-            This facility has no current flexibility envelope. One is created by a
-            recompute, which validates data quality, computes per-mechanism caps,
-            and records the reasoning behind every number.
-          </p>
+          <div className="empty-state">
+            <span className="empty-state__mark" aria-hidden="true">E0</span>
+            <h2>No current envelope</h2>
+            <p>
+              Compute the first conservative position from the active safety
+              constraints, mechanisms, and telemetry quality. Every binding rule
+              will be recorded with the result.
+            </p>
+            <OperatorForm
+              action={recomputeEnvelopeAction}
+              buttonLabel="Compute envelope"
+              pendingLabel="Computing envelope…"
+              hidden={{ facility_id: facility.id }}
+            />
+          </div>
         </section>
       </main>
     );
@@ -52,7 +66,7 @@ export default async function EnvelopePage() {
             </p>
           </div>
           <div className="row">
-            <Chip kind={envelope.status === 'CURRENT' ? 'tested' : 'declared'}>
+            <Chip kind={envelope.status === 'CURRENT' ? 'neutral' : 'declared'}>
               {envelope.status}
             </Chip>
           </div>
@@ -113,7 +127,7 @@ export default async function EnvelopePage() {
           <span className="metric__label">Confidence</span>
           <div className="metric__value">{envelope.confidence_score.toFixed(2)}</div>
           <div className="metric__foot">
-            <Chip kind={envelope.confidence_score >= 0.6 ? 'tested' : 'declared'}>
+            <Chip kind="neutral">
               {envelope.confidence_score >= 0.85
                 ? 'Tested basis'
                 : envelope.confidence_score >= 0.6
@@ -228,6 +242,20 @@ export default async function EnvelopePage() {
           </div>
         </section>
       ) : null}
+
+      <aside className="action-bar" aria-label="Envelope actions">
+        <p>
+          Recompute after changing constraints, mechanisms, or telemetry. The
+          previous version remains in the audit trail.
+        </p>
+        <OperatorForm
+          action={recomputeEnvelopeAction}
+          buttonLabel="Recompute envelope"
+          pendingLabel="Recomputing…"
+          hidden={{ facility_id: facility.id }}
+          className="stack"
+        />
+      </aside>
     </main>
   );
 }
