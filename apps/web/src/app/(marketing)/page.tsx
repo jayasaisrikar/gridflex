@@ -28,7 +28,7 @@ const painPoints = [
   {
     index: '04',
     title: 'Qualification and trust delays',
-    copy: 'Utilities, aggregators, lenders, and tenants struggle to verify whether a facility can reliably reduce load without creating operational risk.',
+    copy: 'Utilities, lenders, and tenants struggle to verify whether a facility can reliably reduce load without creating operational risk.',
     signal: 'Review blocked',
   },
 ] as const;
@@ -49,7 +49,7 @@ const solutionSteps = [
   {
     number: '03',
     title: 'Prove',
-    copy: 'Generate a versioned Flexibility Passport with deterministic calculations, evidence provenance, drill history, and downloadable reports.',
+    copy: 'Generate a versioned GridFlex Proof with deterministic calculations, evidence provenance, drill history, and downloadable reports.',
     detail: 'Every field keeps its source',
   },
 ] as const;
@@ -108,7 +108,7 @@ const facilityTypes = [
 const stakeholders = [
   'Facility operators',
   'Utilities and grid planners',
-  'QSEs and aggregators',
+  'Verifiers and assurance providers',
   'Lenders and investors',
   'Tenants and workload customers',
   'Energy consultants',
@@ -151,7 +151,7 @@ export default function LandingPage() {
                 Request a pilot <Arrow />
               </a>
               <a className="mk-button mk-button--secondary" href="#passport">
-                Explore the Flexibility Passport
+                Explore the GridFlex Proof
               </a>
             </div>
             <Link className="mk-text-link" href="/console/drills">
@@ -202,7 +202,7 @@ export default function LandingPage() {
             <div data-reveal>
               <h2 id="solution-title">One continuously maintained source of truth for facility flexibility.</h2>
               <p>
-                The Passport stays useful because the evidence path remains attached to the
+                The Proof stays useful because the evidence path remains attached to the
                 operating state that produced it.
               </p>
             </div>
@@ -262,7 +262,7 @@ export default function LandingPage() {
             <p className="mk-agent__note">
               These are library capabilities under validation. No agent action is executed by
               the pilot runtime. The deterministic engine decides what may be claimed, and the
-              Passport records what was proved.
+              Proof records what was proved.
             </p>
           </div>
         </section>
@@ -271,16 +271,16 @@ export default function LandingPage() {
           <header className="mk-passport__intro" data-reveal>
             <h2 id="passport-title">From an operational claim to independently checkable evidence.</h2>
             <p>
-              Every value in the Passport is linked to its source, methodology, test history,
+              Every value in the Proof is linked to its source, methodology, test history,
               and confidence level. GridFlex never allows an AI model to invent telemetry or
               operational results.
             </p>
             <a className="mk-button mk-button--primary" href="#passport-record">
-              View sample Passport <Arrow />
+              View sample Proof <Arrow />
             </a>
           </header>
 
-          <SamplePassport />
+          <SampleProof />
         </section>
 
         <section className="mk-standards mk-section" aria-labelledby="standards-title">
@@ -291,7 +291,7 @@ export default function LandingPage() {
           <div className="mk-standards__grid" data-reveal>
             <Standard value="95" suffix="%+" label="Required telemetry completeness" />
             <Standard value="20" prefix="±" suffix="%" label="Target prediction-versus-delivery accuracy" />
-            <Standard value="100" suffix="%" label="Provenance coverage for Passport fields" />
+            <Standard value="100" suffix="%" label="Provenance coverage for Proof fields" />
             <Standard value="5" suffix="-stage" label="Operational trust ladder" />
             <Standard value="SHA-256" label="Evidence integrity" />
             <Standard value="Read-only" label="First deployment model" />
@@ -448,7 +448,7 @@ function OperationalStatus() {
           <h2 id="status-title">A pilot operating picture—not a static claim.</h2>
         </div>
         <div className="mk-status__verified">
-          <span>Passport status</span>
+          <span>Proof status</span>
           <strong><i aria-hidden="true" /> Simulation verified</strong>
         </div>
       </header>
@@ -542,7 +542,7 @@ function TelemetryChart() {
 
 function FragmentationDiagram() {
   return (
-    <figure className="mk-fragment" data-reveal aria-label="Disconnected facility systems consolidated into one Flexibility Passport">
+    <figure className="mk-fragment" data-reveal aria-label="Disconnected facility systems consolidated into one GridFlex Proof">
       <div className="mk-fragment__sources">
         {['Meter', 'DCIM', 'BMS', 'UPS', 'Scheduler', 'Drill log'].map((item) => (
           <span key={item}>{item}<i aria-hidden="true" /></span>
@@ -551,19 +551,19 @@ function FragmentationDiagram() {
       <div className="mk-fragment__flow" aria-hidden="true"><i /><i /><i /></div>
       <div className="mk-fragment__passport">
         <span>GridFlex</span>
-        <strong>Flexibility Passport</strong>
+        <strong>GridFlex Proof</strong>
         <small>Versioned · Evidence-backed · Verifiable</small>
       </div>
     </figure>
   );
 }
 
-function SamplePassport() {
+function SampleProof() {
   return (
     <article className="mk-passport-card" id="passport-record" data-reveal>
       <div className="mk-passport-card__head">
         <div>
-          <span>GridFlex Flexibility Passport</span>
+          <span>GridFlex GridFlex Proof</span>
           <strong>Demo Compute Facility</strong>
         </div>
         <div className="mk-passport-card__status">
@@ -587,14 +587,14 @@ function SamplePassport() {
 
       <div className="mk-passport-card__body">
         <dl className="mk-passport-card__specs">
-          <PassportField label="Response time" value="5 minutes" provenance="Tested" />
-          <PassportField label="Maximum duration" value="30 minutes" provenance="Tested" />
-          <PassportField label="Minimum safe facility load" value="Constraint linked" provenance="Declared" />
-          <PassportField label="Cooling reserve" value="Telemetry linked" provenance="Modelled" />
-          <PassportField label="Tenant and SLA exclusions" value="Policy linked" provenance="Declared" />
-          <PassportField label="Rebound energy" value="Reported separately" provenance="Tested" />
-          <PassportField label="Telemetry completeness" value="99.8%" provenance="Tested" />
-          <PassportField label="Confidence" value="Source-aware" provenance="Modelled" />
+          <ProofField label="Response time" value="5 minutes" provenance="Tested" />
+          <ProofField label="Maximum duration" value="30 minutes" provenance="Tested" />
+          <ProofField label="Minimum safe facility load" value="Constraint linked" provenance="Declared" />
+          <ProofField label="Cooling reserve" value="Telemetry linked" provenance="Modelled" />
+          <ProofField label="Tenant and SLA exclusions" value="Policy linked" provenance="Declared" />
+          <ProofField label="Rebound energy" value="Reported separately" provenance="Tested" />
+          <ProofField label="Telemetry completeness" value="99.8%" provenance="Tested" />
+          <ProofField label="Confidence" value="Source-aware" provenance="Modelled" />
         </dl>
 
         <div className="mk-passport-card__evidence">
@@ -609,7 +609,7 @@ function SamplePassport() {
             <small>SHA-256 · shortened for display</small>
           </div>
           <div>
-            <span>Passport version</span>
+            <span>Proof version</span>
             <strong>Demo v1.4</strong>
             <small>Illustrative record · not a production issue</small>
           </div>
@@ -638,7 +638,7 @@ function Capacity({ provenance, value, width }: { provenance: string; value: str
   );
 }
 
-function PassportField({ label, value, provenance }: { label: string; value: string; provenance: string }) {
+function ProofField({ label, value, provenance }: { label: string; value: string; provenance: string }) {
   return (
     <div>
       <dt>{label}</dt>
@@ -664,7 +664,7 @@ function Standard({ value, label, prefix = '', suffix = '' }: { value: string; l
 
 function StakeholderNetwork() {
   return (
-    <figure className="mk-network" data-reveal aria-label="Flexibility Passport connected to six stakeholder groups">
+    <figure className="mk-network" data-reveal aria-label="GridFlex Proof connected to six stakeholder groups">
       <svg viewBox="0 0 980 540" aria-hidden="true">
         <g className="mk-network__lines">
           <path d="M490 270 C350 210 280 105 145 86" />
@@ -682,7 +682,7 @@ function StakeholderNetwork() {
       </svg>
       <div className="mk-network__core">
         <span>GridFlex</span>
-        <strong>Passport</strong>
+        <strong>Proof</strong>
         <small>One verifiable record</small>
       </div>
       {stakeholders.map((stakeholder, index) => (
@@ -703,7 +703,7 @@ function ArchitectureDiagram() {
     ['Envelope engine', 'Constraints applied'],
     ['Drill + deterministic MRV', 'Operator approved'],
     ['Evidence bundle', 'Canonical JSON · SHA-256'],
-    ['Flexibility Passport', 'Versioned record'],
+    ['GridFlex Proof', 'Versioned record'],
     ['Counterparty exports', 'JSON · PDF · API'],
   ] as const;
   return (

@@ -145,7 +145,7 @@ export default async function TelemetryPage() {
                 </td>
               </tr>
               <tr>
-                <th scope="row">Completeness for Passport (pilot)</th>
+                <th scope="row">Completeness for Proof (pilot)</th>
                 <td className="num">≥ 90% over 24h, fresh</td>
                 <td className="num">{(quality.completeness * 100).toFixed(1)}% over 24h</td>
                 <td>

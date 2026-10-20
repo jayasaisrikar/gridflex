@@ -205,7 +205,7 @@ function ConnectorCard({ connector }: { connector: Connector }) {
             <div className="disclosure__body stack">
               <p className="sheet__note">
                 Disable <strong>{connector.name}</strong>? New readings from this source will
-                stop, which can make telemetry, envelopes, and Passports stale.
+                stop, which can make telemetry, envelopes, and Proofs stale.
               </p>
               <OperatorForm
                 action={toggleConnectorAction}

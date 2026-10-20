@@ -1,63 +1,67 @@
 /**
- * Canonical demo values.
+ * Canonical demo values — UAE profile.
  *
  * IMPORTANT — nothing here is invented. Every number below is either:
  *   (a) seeded configuration from infra/sql/gridflex_seed.sql, or
  *   (b) computed by @gridflex/engine and verified by its test suite.
  *
- * The MRV figures are the actual output of the canonical scenario
- * (seed 20260721), asserted in packages/engine/tests/canonical-scenario.test.ts
- * to fall inside the spec §14 acceptance range. They are not illustrative.
+ * The demo facility is a 10 MW data centre in Dubai on the DEWA network.
+ * Drill MRV figures come from packages/db/scripts/seed-simulation running the
+ * engine at Dubai scale (seed 20260721) — they are computed, not asserted
+ * here, so this file carries no hard-coded delivered figure that could drift
+ * from the sealed evidence.
  *
  * When the API is wired in, this module is replaced by fetches — the shape
  * stays the same so the components do not change.
  */
 
 export const FACILITY = {
-  name: 'Lone Star Compute Facility',
-  slug: 'lone-star-compute',
-  timezone: 'America/Chicago',
-  market: 'ERCOT',
-  region: 'Texas',
+  name: 'Dubai Compute Campus',
+  slug: 'dubai-compute-campus',
+  timezone: 'Asia/Dubai',
+  market: 'DEWA',
+  region: 'Dubai',
+  country: 'AE',
+  currency: 'AED',
   // From gridflex_seed.sql
-  normalLoadKw: '1600.000',
-  minimumSafeLoadKw: '900.000',
-  maximumCurtailmentKw: '600.000',
-  rampRateKwPerMin: '100.000',
-  coolingReserveKw: '150.000',
+  normalLoadKw: '10000.000',
+  minimumSafeLoadKw: '6000.000',
+  maximumCurtailmentKw: '3500.000',
+  rampRateKwPerMin: '800.000',
+  coolingReserveKw: '2500.000',
 } as const;
 
 export const CONSTRAINTS = {
   version: 1,
-  minimumSafeLoadKw: '900.000',
-  maximumCurtailmentKw: '600.000',
-  maximumRampKwPerMin: '100.000',
-  maximumDurationMin: 60,
+  minimumSafeLoadKw: '6000.000',
+  maximumCurtailmentKw: '3500.000',
+  maximumRampKwPerMin: '800.000',
+  maximumDurationMin: 240,
   minimumRecoveryMin: 30,
-  maximumReboundKw: '250.000',
-  thermalLimitC: '32.000',
-  sourceNote: 'Canonical demo constraints',
+  maximumReboundKw: '1200.000',
+  thermalLimitC: '30.000',
+  sourceNote: 'Dubai demo constraints (DEWA summer profile)',
 } as const;
 
-/** From gridflex_seed.sql. All three are DECLARED — no drill has tested them yet. */
+/** From gridflex_seed.sql. All four are DECLARED — no drill has tested them yet. */
 export const MECHANISMS = [
   {
-    code: 'WORKLOAD_DEFERRAL',
-    name: 'Batch workload deferral',
-    type: 'WORKLOAD',
-    declaredKw: '350.000',
-    rampKwPerMin: '80.000',
-    durationMin: 60,
-    reboundWindowMin: 20,
+    code: 'COOLING_PRECOOL',
+    name: 'Chilled-water pre-cooling (thermal bank)',
+    type: 'COOLING',
+    declaredKw: '1200.000',
+    rampKwPerMin: '300.000',
+    durationMin: 90,
+    reboundWindowMin: 60,
     provenance: 'DECLARED' as const,
   },
   {
-    code: 'COOLING_HEADROOM',
-    name: 'Cooling thermal headroom',
+    code: 'COOLING_SETPOINT_SHIFT',
+    name: 'Cooling setpoint shift',
     type: 'COOLING',
-    declaredKw: '100.000',
-    rampKwPerMin: '20.000',
-    durationMin: 30,
+    declaredKw: '800.000',
+    rampKwPerMin: '100.000',
+    durationMin: 240,
     reboundWindowMin: 30,
     provenance: 'DECLARED' as const,
   },
@@ -65,27 +69,36 @@ export const MECHANISMS = [
     code: 'UPS_BESS',
     name: 'UPS/BESS discharge support',
     type: 'STORAGE',
-    declaredKw: '150.000',
-    rampKwPerMin: '150.000',
+    declaredKw: '1000.000',
+    rampKwPerMin: '1000.000',
     durationMin: 30,
     reboundWindowMin: 45,
+    provenance: 'DECLARED' as const,
+  },
+  {
+    code: 'WORKLOAD_DEFERRAL',
+    name: 'Batch workload deferral',
+    type: 'WORKLOAD',
+    declaredKw: '500.000',
+    rampKwPerMin: '200.000',
+    durationMin: 120,
+    reboundWindowMin: 20,
     provenance: 'DECLARED' as const,
   },
 ] as const;
 
 /**
- * Envelope as computed by @gridflex/engine from the values above.
- * Verified in packages/engine/tests/envelope.test.ts.
+ * Envelope as computed by @gridflex/engine from the values above:
+ * min(sum of caps 3500, physical headroom 4000, max curtailment 3500).
  */
 export const ENVELOPE = {
   version: 1,
   status: 'CURRENT' as const,
-  totalReducibleKw: '600.000',
-  // min(sum of caps 600, physical headroom 700, max curtailment 600)
+  totalReducibleKw: '3500.000',
   bindingConstraint: 'MAXIMUM_CURTAILMENT',
-  sumOfMechanismCapsKw: '600.000',
-  physicalHeadroomKw: '700.000',
-  aggregateRampKwPerMin: '100.000',
+  sumOfMechanismCapsKw: '3500.000',
+  physicalHeadroomKw: '4000.000',
+  aggregateRampKwPerMin: '800.000',
   sustainableDurationMin: 30,
   responseTimeSeconds: 60,
   confidenceScore: 0.3,
@@ -95,31 +108,23 @@ export const ENVELOPE = {
 } as const;
 
 /**
- * MRV output of the canonical drill, seed 20260721.
- * Asserted against spec §14's acceptance range by the engine test suite.
+ * The Dubai demo drill (seed 20260721, 2,500 kW · 30 min), computed by
+ * packages/db/scripts/seed-simulation through the engine. Delivered energy
+ * and performance live in the sealed evidence bundle, not here.
  */
 export const DRILL = {
-  name: 'Canonical 500 kW · 30 min',
+  name: 'Dubai peak 2,500 kW · 30 min',
   status: 'COMPLETED' as const,
   simulationMode: true,
-  requestedReductionKw: '500.000',
+  requestedReductionKw: '2500.000',
   sustainMinutes: 30,
   intervalSeconds: 60,
   baselineMethod: 'MEDIAN_SAME_INTERVAL_5_DAYS',
-  committedEnergyKwh: '250.000',
-  deliveredEnergyKwh: '244.724',
-  averageDeliveredKw: '489.447',
-  performanceBps: 9789,
+  committedEnergyKwh: '1250.000',
   telemetryCompleteness: 1,
   maximumGapIntervals: 0,
   methodologyVersion: 'gridflex-mrv-1.0.0',
   seed: 20260721,
-} as const;
-
-/** Evidence digest produced by sealDocument() over the MRV result. */
-export const EVIDENCE = {
-  schemaVersion: 'gridflex-canonical-1',
-  sha256: '66820ce67fa39e82b170c8adcdeafe89dee7b3316d030b18003990ef5af8baf2',
 } as const;
 
 /** Formats basis points as a percentage string, e.g. 9789 → "97.89". */

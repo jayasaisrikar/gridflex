@@ -101,7 +101,7 @@ const STAGES: readonly StageSpec[] = [
   },
   {
     stage: '8.0',
-    title: 'Passport',
+    title: 'Proof',
     eventType: 'PASSPORT_ISSUED',
     detail: () =>
       'Issuance requires a current envelope, successful canonicalisation, telemetry quality above threshold, and an MRV report.',

@@ -6,7 +6,7 @@ import { BrandLockup } from '@/components/brand';
 
 const links = [
   { href: '#product', label: 'Product' },
-  { href: '#passport', label: 'Flexibility Passport' },
+  { href: '#passport', label: 'GridFlex Proof' },
   { href: '#how-it-works', label: 'How it works' },
   { href: '#ai', label: 'Forecast R&D' },
   { href: '#security', label: 'Security' },

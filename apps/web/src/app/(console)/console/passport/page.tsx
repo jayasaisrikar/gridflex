@@ -9,7 +9,7 @@ import { formatKw, requireFacility } from '@/lib/load';
 import { issuePassportAction } from '../../actions';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Passport' };
+export const metadata: Metadata = { title: 'Proof' };
 
 export default async function PassportPage() {
   const facility = await requireFacility();
@@ -39,7 +39,7 @@ export default async function PassportPage() {
       <header className="pagehead">
         <div className="pagehead__row">
           <div>
-            <h1>Flexibility Passport</h1>
+            <h1>GridFlex Proof</h1>
             <p className="pagehead__sub">
               A versioned, independently hash-verifiable record of capability,
               safety limits, data quality, and test history.
@@ -56,7 +56,7 @@ export default async function PassportPage() {
               >
                 {verification?.passport_hash_matches && verification.evidence_hash_matches
                   ? `Verified · v${current.version}`
-                  : `Passport v${current.version}`}
+                  : `Proof v${current.version}`}
               </Chip>
             ) : null}
             {current?.contains_simulated_data ? <Chip kind="simulated">Contains simulation</Chip> : null}
@@ -84,7 +84,7 @@ export default async function PassportPage() {
         <div className="workbench-grid">
           <section className="panel empty-state">
             <span className="empty-state__mark" aria-hidden="true">P0</span>
-            <h2>No Passport issued</h2>
+            <h2>No Proof issued</h2>
             <p>
               Issue the first version once the current envelope and telemetry gates
               pass. The resulting JSON is sealed before it is stored.
@@ -147,7 +147,7 @@ export default async function PassportPage() {
                       : 'Verification failed'}
                   </Chip>
                 </div>
-                <HashRow label="Passport SHA-256" value={record.passport_sha256} />
+                <HashRow label="Proof SHA-256" value={record.passport_sha256} />
                 <HashRow label="Evidence SHA-256" value={record.document.evidence_sha256} />
                 <p className="sheet__note">{verification.instructions}</p>
               </section>
@@ -223,7 +223,7 @@ export default async function PassportPage() {
                 <li className="record-list__item" key={passport.id}>
                   <div className="record-list__main">
                     <div className="row">
-                      <h3>Passport v{passport.version}</h3>
+                      <h3>Proof v{passport.version}</h3>
                       <Chip kind="neutral">{passport.status}</Chip>
                       {passport.contains_simulated_data ? <Chip kind="simulated">Simulated</Chip> : null}
                     </div>
@@ -271,8 +271,8 @@ function IssuePanel({
       ) : (
         <OperatorForm
           action={issuePassportAction}
-          buttonLabel={`Issue Passport v${nextVersion}`}
-          pendingLabel="Sealing Passport…"
+          buttonLabel={`Issue Proof v${nextVersion}`}
+          pendingLabel="Sealing Proof…"
           showSuccess
           hidden={{ facility_id: facilityId, envelope_id: envelopeId }}
         >
