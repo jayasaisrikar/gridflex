@@ -197,11 +197,11 @@ export async function issuePassportAction(
     );
     revalidatePath('/console');
     revalidatePath('/console/passport');
-    return success('Passport issued from the current evidence chain.', {
+    return success('Proof issued from the current evidence chain.', {
       passport_id: response.passport.id ?? response.passport.document?.id ?? '',
     });
   } catch (error) {
-    return failure(error, 'The Passport could not be issued.');
+    return failure(error, 'The Proof could not be issued.');
   }
 }
 
@@ -224,7 +224,7 @@ export async function exportPassportAction(
       format: format.toLowerCase(),
     });
   } catch (error) {
-    return failure(error, 'The Passport export could not be prepared.');
+    return failure(error, 'The Proof export could not be prepared.');
   }
 }
 

@@ -20,7 +20,7 @@ const AMBER: Rgb = [0.95, 0.66, 0.14];
 const GREEN: Rgb = [0.1, 0.48, 0.3];
 
 /**
- * Builds a deterministic, dependency-free PDF presentation of a Passport.
+ * Builds a deterministic, dependency-free PDF presentation of a Proof.
  * The canonical JSON remains the hash input; this report is deliberately
  * labelled as a readable derivative so PDF renderer differences cannot alter
  * the independently verifiable evidence digest.
@@ -96,7 +96,7 @@ class PassportPdf {
       'Data classification',
       this.document.data_quality.contains_simulated_data
         ? 'Contains simulated data'
-        : 'No simulated data recorded in this Passport',
+        : 'No simulated data recorded in this Proof',
     );
     for (const connector of this.document.data_quality.connector_provenance) {
       this.row(
@@ -107,7 +107,7 @@ class PassportPdf {
 
     this.section('Drill history');
     if (this.document.drill_history.length === 0) {
-      this.paragraph('No completed drill is associated with this Passport.');
+      this.paragraph('No completed drill is associated with this Proof.');
     }
     for (const drill of this.document.drill_history) {
       this.subheading(`${drill.name} / ${drill.status}${drill.simulation_mode ? ' / SIMULATED' : ''}`);
@@ -140,10 +140,10 @@ class PassportPdf {
     this.paragraph(
       'This PDF is a readable derivative. Independently verify the canonical JSON document and evidence bundle; do not hash the PDF bytes.',
     );
-    this.row('Passport SHA-256', spacedDigest(this.passportSha256), true);
+    this.row('Proof SHA-256', spacedDigest(this.passportSha256), true);
     this.row('Evidence SHA-256', spacedDigest(this.document.evidence_sha256), true);
     this.row('Canonical schema', 'gridflex-canonical-1');
-    this.row('Passport ID', this.document.id, true);
+    this.row('Proof ID', this.document.id, true);
     this.row('Evidence bundle ID', this.document.evidence_bundle_id, true);
 
     this.addFooters();
@@ -160,7 +160,7 @@ class PassportPdf {
       this.brandMark(MARGIN, this.y - 3, 15, INK);
       this.text('GRID', MARGIN + 22, this.y, 9, 'F2', INK);
       this.text('FLEX', MARGIN + 44, this.y, 9, 'F2', BRAND_TEAL);
-      this.text('FLEXIBILITY PASSPORT', MARGIN + 78, this.y, 8, 'F3', MUTED);
+      this.text('GRIDFLEX PROOF', MARGIN + 78, this.y, 8, 'F3', MUTED);
       this.text(
         `v${this.document.version} / ${this.document.facility.name}`,
         PAGE_WIDTH - MARGIN,
@@ -180,7 +180,7 @@ class PassportPdf {
     this.brandMark(MARGIN, PAGE_HEIGHT - 49, 18, WHITE);
     this.text('GRID', MARGIN + 26, PAGE_HEIGHT - 44, 10, 'F2', WHITE);
     this.text('FLEX', MARGIN + 51, PAGE_HEIGHT - 44, 10, 'F2', BRAND_TEAL);
-    this.text('FLEXIBILITY PASSPORT', MARGIN, PAGE_HEIGHT - 79, 25, 'F2', WHITE);
+    this.text('GRIDFLEX PROOF', MARGIN, PAGE_HEIGHT - 79, 25, 'F2', WHITE);
     this.text(
       `${this.document.facility.name} / version ${this.document.version}`,
       MARGIN,

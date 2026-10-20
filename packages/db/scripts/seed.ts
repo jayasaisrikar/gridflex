@@ -44,7 +44,7 @@ async function main(): Promise<void> {
       maximum_curtailment_kw: string;
     }>(
       `select name, slug, normal_load_kw, minimum_safe_load_kw, maximum_curtailment_kw
-       from facilities where slug = 'lone-star-compute'`,
+       from facilities where slug = 'dubai-compute-campus'`,
     );
 
     if (facility.rowCount === 0) {
@@ -55,14 +55,14 @@ async function main(): Promise<void> {
       `select m.code, m.declared_reducible_kw
        from flexibility_mechanisms m
        join facilities f on f.id = m.facility_id
-       where f.slug = 'lone-star-compute'
+       where f.slug = 'dubai-compute-campus'
        order by m.code`,
     );
 
     const constraints = await client.query<{ version: number }>(
       `select c.version from facility_constraints c
        join facilities f on f.id = c.facility_id
-       where f.slug = 'lone-star-compute' order by c.version desc limit 1`,
+       where f.slug = 'dubai-compute-campus' order by c.version desc limit 1`,
     );
 
     const row = facility.rows[0]!;

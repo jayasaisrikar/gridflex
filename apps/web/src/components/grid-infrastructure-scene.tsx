@@ -367,7 +367,7 @@ export function GridInfrastructureScene() {
 
       <figcaption id="scene-description">
         An interactive model of a data centre, its operating envelope, a controlled drill,
-        and the evidence path to a Flexibility Passport.
+        and the evidence path to a GridFlex Proof.
       </figcaption>
     </figure>
   );

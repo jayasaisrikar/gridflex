@@ -21,7 +21,7 @@ import pg from 'pg';
 import { sealDocument, type CanonicalInput } from '@gridflex/engine';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const FACILITY_SLUG = 'lone-star-compute';
+const FACILITY_SLUG = 'dubai-compute-campus';
 
 function databaseUrl(): string {
   if (process.env.DATABASE_URL) return process.env.DATABASE_URL;

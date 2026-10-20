@@ -10,7 +10,7 @@ const DESTINATIONS = [
   { href: '/console/telemetry', label: 'Telemetry', hint: 'Load curve, quality, and quarantine' },
   { href: '/console/envelope', label: 'Envelope', hint: 'Capacity calculation and provenance' },
   { href: '/console/drills', label: 'Drills', hint: 'Plan, arm, run, and verify' },
-  { href: '/console/passport', label: 'Passport', hint: 'Issue and export evidence' },
+  { href: '/console/passport', label: 'Proof', hint: 'Issue and export evidence' },
   { href: '/console/facility', label: 'Facility & Safety', hint: 'Constraints and mechanisms' },
   { href: '/console/connectors', label: 'Connectors', hint: 'Data sources and ingestion' },
   { href: '/console/audit', label: 'Audit', hint: 'Immutable operator activity' },

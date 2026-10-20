@@ -41,6 +41,25 @@ export const DEFAULT_DISRUPTION_RANK: Readonly<Record<MechanismType, number>> = 
   OTHER: 4,
 };
 
+/**
+ * Cooling-first allocation order for hot-climate summer peaks (UAE profile).
+ *
+ * In a Dubai August, cooling is the largest flexible load and the one the
+ * utility peak is made of, so thermal mechanisms are drawn first: pre-cooling
+ * banks cold in thermal mass before the window, setpoint shifts hold through
+ * it, storage covers ramps, and deferrable compute absorbs the remainder. The
+ * disruption-based default stays available; this order is an explicit choice
+ * per plan request, never a silent global flip.
+ */
+export const COOLING_FIRST_RANK: Readonly<Record<MechanismType, number>> = {
+  COOLING: 1,
+  STORAGE: 2,
+  WORKLOAD: 3,
+  OTHER: 4,
+};
+
+export type PlanPriority = 'DISRUPTION' | 'COOLING_FIRST';
+
 /** Seconds a facility is allowed to take reaching the committed reduction. */
 export const DEFAULT_RESPONSE_WINDOW_SECONDS = 600;
 
@@ -64,6 +83,11 @@ export interface PlanRequest {
   readonly durationMin: number;
   readonly mechanisms: readonly PlanMechanismInput[];
   readonly responseWindowSeconds?: number;
+  /**
+   * Allocation order. DISRUPTION (default) draws least disruptive first;
+   * COOLING_FIRST draws thermal mechanisms first for hot-climate peaks.
+   */
+  readonly priority?: PlanPriority;
 }
 
 export interface Allocation {
@@ -122,11 +146,14 @@ function integerHint(
   return null;
 }
 
-export function disruptionRankOf(mechanism: PlanMechanismInput): number {
-  return (
-    integerHint(mechanism.metadata, 'disruptionRank') ??
-    DEFAULT_DISRUPTION_RANK[mechanism.mechanismType]
-  );
+export function disruptionRankOf(
+  mechanism: PlanMechanismInput,
+  priority: PlanPriority = 'DISRUPTION',
+): number {
+  const override = integerHint(mechanism.metadata, 'disruptionRank');
+  if (override !== null) return override;
+  const table = priority === 'COOLING_FIRST' ? COOLING_FIRST_RANK : DEFAULT_DISRUPTION_RANK;
+  return table[mechanism.mechanismType];
 }
 
 export function planReduction(request: PlanRequest): ReductionPlan {
@@ -141,6 +168,7 @@ export function planReduction(request: PlanRequest): ReductionPlan {
   }
 
   const responseWindowSeconds = request.responseWindowSeconds ?? DEFAULT_RESPONSE_WINDOW_SECONDS;
+  const priority = request.priority ?? 'DISRUPTION';
   const excluded: ExcludedMechanism[] = [];
   const decisions: PlanDecision[] = [];
 
@@ -194,11 +222,23 @@ export function planReduction(request: PlanRequest): ReductionPlan {
     eligible.push(mechanism);
   }
 
-  // Least disruptive first; ties broken by code so the plan is deterministic.
+  // Requested order; ties broken by code so the plan is deterministic.
   const ordered = [...eligible].sort((a, b) => {
-    const rankDelta = disruptionRankOf(a) - disruptionRankOf(b);
+    const rankDelta = disruptionRankOf(a, priority) - disruptionRankOf(b, priority);
     return rankDelta !== 0 ? rankDelta : a.code < b.code ? -1 : a.code > b.code ? 1 : 0;
   });
+
+  if (priority === 'COOLING_FIRST') {
+    decisions.push({
+      decisionType: 'PLAN_PRIORITY',
+      decisionCode: 'COOLING_FIRST_PRIORITY',
+      severity: 'INFO',
+      facts: {
+        priority,
+        thermal_mechanisms_eligible: ordered.filter((m) => m.mechanismType === 'COOLING').length,
+      },
+    });
+  }
 
   const allocations: Allocation[] = [];
   let remaining = targetMkw;
@@ -216,7 +256,7 @@ export function planReduction(request: PlanRequest): ReductionPlan {
       mechanismType: mechanism.mechanismType,
       allocatedKw: milliKwToKwString(take),
       allocatedMkw: take,
-      disruptionRank: disruptionRankOf(mechanism),
+      disruptionRank: disruptionRankOf(mechanism, priority),
       reboundWindowMin: mechanism.reboundWindowMin,
     });
 

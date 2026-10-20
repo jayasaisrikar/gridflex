@@ -53,7 +53,7 @@ export default async function globalSetup() {
     const facility = await client.query(
       `select id, organization_id
        from facilities
-       where slug = 'lone-star-compute'
+       where slug = 'dubai-compute-campus'
        limit 1`,
     );
     if (!facility.rows[0]) {

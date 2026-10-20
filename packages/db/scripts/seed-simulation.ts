@@ -14,8 +14,6 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import {
-  CANONICAL_DRILL,
-  CANONICAL_FACILITY,
   computeBaseline,
   computeMrv,
   energyWh,
@@ -28,10 +26,19 @@ import {
 } from '@gridflex/engine';
 
 const here = dirname(fileURLToPath(import.meta.url));
+/**
+ * Demo drill scale. The engine's canonical scenario (1.6 MW / 500 kW) stays the
+ * acceptance gate for its own test suite; the Dubai demo facility is 10 MW, so
+ * the seeded drill runs at 2,500 kW — inside the 3,500 kW envelope, far above
+ * the 6,000 kW safe floor, and still produced by simulateDrill, never invented.
+ */
+const DEMO_NORMAL_LOAD_KW = 10_000;
+const DEMO_REQUESTED_REDUCTION_KW = 2_500;
+const DEMO_SUSTAIN_MINUTES = 30;
 const SEED = 20260721;
-const FACILITY_SLUG = 'lone-star-compute';
+const FACILITY_SLUG = 'dubai-compute-campus';
 const SOURCE_KEY = 'simulator-main-meter';
-const DRILL_NAME = 'Canonical 500 kW · 30 min';
+const DRILL_NAME = 'Dubai peak 2,500 kW · 30 min';
 
 function databaseUrl(): string {
   if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
@@ -43,8 +50,18 @@ function databaseUrl(): string {
 }
 
 /** Deterministic 24h baseline load curve, ending now, at 1-minute intervals. */
-function buildDayCurve(endMs: number, intervalSeconds: number, count: number) {
-  const days = simulateBaselineDays({ seed: SEED, dayCount: 1, intervalCount: count });
+function buildDayCurve(
+  endMs: number,
+  intervalSeconds: number,
+  count: number,
+  normalLoadKw: number,
+) {
+  const days = simulateBaselineDays({
+    seed: SEED,
+    dayCount: 1,
+    intervalCount: count,
+    normalLoadKw,
+  });
   const samples = days[0]?.samples ?? [];
   return samples.map((sample, index) => ({
     measuredAt: new Date(endMs - (count - 1 - index) * intervalSeconds * 1000),
@@ -113,10 +130,14 @@ async function main(): Promise<void> {
      */
     const intervalMs = intervalSeconds * 1000;
     const nowMs = Math.floor(Date.now() / intervalMs) * intervalMs;
-    const curve = buildDayCurve(nowMs, intervalSeconds, dayIntervals);
+    const curve = buildDayCurve(nowMs, intervalSeconds, dayIntervals, DEMO_NORMAL_LOAD_KW);
 
     // ---- The drill sits at the end of the window ------------------------
-    const simulation = simulateDrill({ seed: SEED });
+    const simulation = simulateDrill({
+      seed: SEED,
+      normalLoadKw: DEMO_NORMAL_LOAD_KW,
+      requestedReductionKw: DEMO_REQUESTED_REDUCTION_KW,
+    });
     const sustainCount = simulation.sustain.length;
     const drillStartMs = nowMs - sustainCount * intervalSeconds * 1000;
 
@@ -181,8 +202,8 @@ async function main(): Promise<void> {
     });
 
     const committedEnergyWh = energyWh(
-      kwNumberToMilliKw(CANONICAL_DRILL.requestedReductionKw),
-      CANONICAL_DRILL.sustainMinutes * 60,
+      kwNumberToMilliKw(DEMO_REQUESTED_REDUCTION_KW),
+      DEMO_SUSTAIN_MINUTES * 60,
     );
 
     const mrv = computeMrv({
@@ -237,6 +258,22 @@ async function main(): Promise<void> {
     );
     const envelopeId = envelope.rows[0]?.id ?? null;
 
+    // The facility's own constraint version is the source of truth for the
+    // drill's recorded limits — never the engine's canonical constants.
+    const constraintsRow = await client.query<{
+      maximum_ramp_kw_per_min: string;
+      minimum_safe_load_kw: string;
+    }>(
+      `select maximum_ramp_kw_per_min, minimum_safe_load_kw
+       from facility_constraints where facility_id = $1
+       order by version desc limit 1`,
+      [facilityId],
+    );
+    if (constraintsRow.rowCount === 0) {
+      throw new Error('No facility constraints found — run pnpm db:seed first');
+    }
+    const dubaiConstraints = constraintsRow.rows[0]!;
+
     // ---- Drill -----------------------------------------------------------
     const existingDrill = await client.query<{ id: string }>(
       `select id from drills where facility_id = $1 and name = $2 limit 1`,
@@ -260,12 +297,14 @@ async function main(): Promise<void> {
           facilityId,
           envelopeId,
           DRILL_NAME,
-          CANONICAL_DRILL.requestedReductionKw.toFixed(3),
+          DEMO_REQUESTED_REDUCTION_KW.toFixed(3),
           new Date(drillStartMs).toISOString(),
           new Date(drillEndMs).toISOString(),
           baseline.method,
-          CANONICAL_FACILITY.maximumRampKwPerMin.toFixed(3),
-          CANONICAL_FACILITY.minimumSafeLoadKw.toFixed(3),
+          // Limits come from the facility's own constraint version, not the
+          // engine's canonical constants — the demo facility is 10 MW Dubai.
+          dubaiConstraints.maximum_ramp_kw_per_min,
+          dubaiConstraints.minimum_safe_load_kw,
           ownerId,
         ],
       );

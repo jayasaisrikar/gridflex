@@ -12,3 +12,4 @@ export * from './learning/index.js';
 export * from './explain/index.js';
 export * from './safety/index.js';
 export * from './safety/simulator-source.js';
+export * from './signals/index.js';

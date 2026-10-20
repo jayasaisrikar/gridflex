@@ -12,7 +12,7 @@ const destinations = [
   { label: 'Telemetry', path: '/console/telemetry', heading: 'Telemetry' },
   { label: 'Envelope', path: '/console/envelope', heading: /(?:Flexibility envelope|Envelope)/ },
   { label: 'Drills', path: '/console/drills', heading: 'Drill workbench' },
-  { label: 'Passport', path: '/console/passport', heading: 'Flexibility Passport' },
+  { label: 'Proof', path: '/console/passport', heading: 'GridFlex Proof' },
   { label: 'Facility & Safety', path: '/console/facility', heading: 'Facility & safety' },
   { label: 'Connectors', path: '/console/connectors', heading: 'Connectors' },
   { label: 'Audit', path: '/console/audit', heading: 'Audit & activity' },
@@ -101,7 +101,7 @@ test('envelope recompute creates a new immutable version', async ({ page }) => {
     .toBeGreaterThan(version);
 });
 
-test('pilot journey runs from a drill plan to a downloadable Passport export', async ({ page }) => {
+test('pilot journey runs from a drill plan to a downloadable Proof export', async ({ page }) => {
   test.setTimeout(120_000);
   const drillName = `Browser pilot ${Date.now()}`;
 
@@ -137,7 +137,7 @@ test('pilot journey runs from a drill plan to a downloadable Passport export', a
   await expect(page.getByText('Evidence digest', { exact: true })).toBeVisible();
 
   await page.goto('/console/passport');
-  const issueButton = page.getByRole('button', { name: /Issue (?:Flexibility )?Passport/i });
+  const issueButton = page.getByRole('button', { name: /Issue (?:GridFlex )?Proof/i });
   await expect(issueButton).toBeVisible();
   await issueButton.click();
   // Issuance replaces the empty/version panel with the durable verified record,

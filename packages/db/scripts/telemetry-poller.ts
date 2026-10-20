@@ -34,7 +34,7 @@ import { simulateSafetyReadings } from '@gridflex/forecast';
 const here = dirname(fileURLToPath(import.meta.url));
 
 const SEED = 20260721;
-const FACILITY_SLUG = 'lone-star-compute';
+const FACILITY_SLUG = 'dubai-compute-campus';
 const POWER_SOURCE_KEY = 'simulator-main-meter';
 const SAFETY_SOURCE_KEY = 'simulator-bms-bess';
 const INTERVAL_SECONDS = 60;
@@ -142,8 +142,14 @@ async function topUp(client: pg.Client, target: Target): Promise<number> {
 
   const count = Math.floor((nowAligned - fromMs) / (INTERVAL_SECONDS * 1000)) + 1;
 
-  // Power, from the same seeded generator the seed script uses.
-  const days = simulateBaselineDays({ seed: SEED, dayCount: 1, intervalCount: count });
+  // Power, from the same seeded generator the seed script uses, at the Dubai
+  // demo facility's 10 MW normal load (gridflex_seed.sql).
+  const days = simulateBaselineDays({
+    seed: SEED,
+    dayCount: 1,
+    intervalCount: count,
+    normalLoadKw: 10_000,
+  });
   const samples = days[0]?.samples ?? [];
 
   let inserted = 0;

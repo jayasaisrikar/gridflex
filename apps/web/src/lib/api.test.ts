@@ -49,13 +49,13 @@ describe('authenticated API requests', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      'http://localhost:4000/api/v1/drills/drill-1/emergency-stop',
+      'http://127.0.0.1:4000/api/v1/drills/drill-1/emergency-stop',
     );
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
-      'http://localhost:4000/api/v1/auth/refresh',
+      'http://127.0.0.1:4000/api/v1/auth/refresh',
     );
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
-      'http://localhost:4000/api/v1/drills/drill-1/emergency-stop',
+      'http://127.0.0.1:4000/api/v1/drills/drill-1/emergency-stop',
     );
 
     const firstRequest = fetchMock.mock.calls[0]?.[1];
@@ -114,7 +114,7 @@ describe('authenticated API requests', () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      'http://localhost:4000/api/v1/auth/refresh',
+      'http://127.0.0.1:4000/api/v1/auth/refresh',
     );
     expect(fetchMock.mock.calls[1]?.[1]?.headers).toMatchObject({
       authorization: 'Bearer fresh-access-token',

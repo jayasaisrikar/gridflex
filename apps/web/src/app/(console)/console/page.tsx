@@ -97,7 +97,7 @@ export default async function OverviewPage() {
           <strong>{activeConnectors.length}/{connectors.length} active</strong>
         </div>
         <div>
-          <span>Passport</span>
+          <span>Proof</span>
           <strong>{currentPassport ? `Issued · v${currentPassport.version}` : 'Not issued'}</strong>
         </div>
       </section>
@@ -361,17 +361,17 @@ function chooseNextAction({
   }
   if (!hasPassport) {
     return {
-      title: 'Issue the first Passport',
+      title: 'Issue the first Proof',
       detail: 'Seal the current envelope, safety basis, data quality, and verified drill into a reviewer-ready version.',
       href: '/console/passport',
-      label: 'Issue Passport',
+      label: 'Issue Proof',
     };
   }
   return {
     title: 'Share verified evidence',
     detail: 'Recompute both hashes, review the carried limitations, and prepare a counterparty export.',
     href: '/console/passport',
-    label: 'Open Passport',
+    label: 'Open Proof',
   };
 }
 
