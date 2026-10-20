@@ -21,6 +21,7 @@
     "@gridflex/contracts": "workspace:*",
     "@gridflex/db": "workspace:*",
     "@gridflex/engine": "workspace:*",
+    "@gridflex/forecast": "workspace:*",
     "@nestjs/common": "^11.0.5",
     "@nestjs/core": "^11.0.5",
     "@nestjs/platform-fastify": "^11.0.5",
