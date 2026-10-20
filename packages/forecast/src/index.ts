@@ -8,6 +8,7 @@ export * from './risk/index.js';
 export * from './agent/tools.js';
 export * from './agent/orchestrator.js';
 export * from './agent/harness.js';
+export * from './agent/openai-client.js';
 export * from './anomaly/index.js';
 export * from './learning/index.js';
 export * from './explain/index.js';
