@@ -32,7 +32,9 @@ export type ToolName =
   | 'MONITOR_DRILL'
   | 'STOP_DRILL'
   | 'VERIFY_DELIVERY'
-  | 'UPDATE_PASSPORT';
+  | 'UPDATE_PASSPORT'
+  | 'READ_GRID_SIGNALS'
+  | 'EXPORT_CARBON_REPORT';
 
 export interface ToolDefinition {
   readonly name: ToolName;
@@ -127,7 +129,20 @@ export const TOOL_REGISTRY: Readonly<Record<ToolName, ToolDefinition>> = {
     name: 'UPDATE_PASSPORT',
     mutates: true,
     requiresApproval: true,
-    description: 'Write the verified outcome into the Flexibility Passport.',
+    description: 'Write the verified outcome into the GridFlex Proof.',
+  },
+  READ_GRID_SIGNALS: {
+    name: 'READ_GRID_SIGNALS',
+    mutates: false,
+    requiresApproval: false,
+    description:
+      'Read grid signals: DEWA peak window, temperature and carbon-intensity forecast.',
+  },
+  EXPORT_CARBON_REPORT: {
+    name: 'EXPORT_CARBON_REPORT',
+    mutates: true,
+    requiresApproval: false,
+    description: 'Export the sealed Scope 2 carbon report for the verified event.',
   },
 };
 
