@@ -738,3 +738,77 @@ export const APPEND_ONLY_TABLES = [
   'evidence_bundles',
   'audit_logs',
 ] as const;
+
+// ---------------------------------------------------------------------------
+// Agent harness
+// ---------------------------------------------------------------------------
+
+export const agentSessionStatus = pgEnum('agent_session_status', [
+  'RUNNING',
+  'AWAITING_APPROVAL',
+  'COMPLETED',
+  'REFUSED',
+  'ABORTED',
+  'STEP_BUDGET_EXHAUSTED',
+]);
+
+/**
+ * One model-driven agent session. Every model step is persisted with its
+ * authorization verdict, so an operator (or a jury) can replay exactly what
+ * the model proposed, what the deterministic gate allowed, and what ran.
+ */
+export const agentSessions = pgTable(
+  'agent_sessions',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    facilityId: uuid('facility_id')
+      .notNull()
+      .references(() => facilities.id, { onDelete: 'cascade' }),
+    drillId: uuid('drill_id').references(() => drills.id, { onDelete: 'set null' }),
+    status: agentSessionStatus('status').notNull().default('RUNNING'),
+    situation: text('situation').notNull(),
+    harnessVersion: text('harness_version').notNull(),
+    modelId: text('model_id').notNull(),
+    steps: jsonb('steps').notNull().default(sql`'[]'::jsonb`),
+    planFingerprint: text('plan_fingerprint'),
+    approvedBy: uuid('approved_by').references(() => appUsers.id),
+    approvedAt: tz('approved_at'),
+    totalInputTokens: integer('total_input_tokens').notNull().default(0),
+    totalOutputTokens: integer('total_output_tokens').notNull().default(0),
+    startedBy: uuid('started_by')
+      .notNull()
+      .references(() => appUsers.id, { onDelete: 'cascade' }),
+    startedAt: tz('started_at').notNull().default(now),
+    finishedAt: tz('finished_at'),
+  },
+  (table) => [index('idx_agent_sessions_facility').on(table.facilityId, table.startedAt.desc())],
+);
+
+/**
+ * The Scope 2 carbon report for one verified event. Sealed like every other
+ * certified document: the report JSON and its canonical SHA-256 are stored as
+ * a pair so a verifier recomputes the digest without trusting us.
+ */
+export const carbonReports = pgTable('carbon_reports', {
+  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: uuid('organization_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  facilityId: uuid('facility_id')
+    .notNull()
+    .references(() => facilities.id, { onDelete: 'cascade' }),
+  drillId: uuid('drill_id')
+    .notNull()
+    .references(() => drills.id, { onDelete: 'cascade' }),
+  methodologyVersion: text('methodology_version').notNull(),
+  reportJson: jsonb('report_json').notNull(),
+  reportSha256: char('report_sha256', { length: 64 }).notNull().unique(),
+  emissionFactorSource: text('emission_factor_source').notNull(),
+  emissionFactorVersion: text('emission_factor_version').notNull(),
+  avoidedTco2e: numeric('avoided_tco2e', { precision: 12, scale: 3 }).notNull(),
+  baselineTco2e: numeric('baseline_tco2e', { precision: 12, scale: 3 }).notNull(),
+  createdAt: tz('created_at').notNull().default(now),
+});

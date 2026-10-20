@@ -12,6 +12,7 @@ import { PassportsController } from './modules/passports/passports.controller.js
 import { DrillsController } from './modules/drills/drills.controller.js';
 import { ConnectorsController } from './modules/connectors/connectors.controller.js';
 import { AuditController } from './modules/audit/audit.controller.js';
+import { AgentController } from './modules/agent/agent.controller.js';
 
 @Module({
   imports: [DatabaseModule, AuthModule],
@@ -24,6 +25,7 @@ import { AuditController } from './modules/audit/audit.controller.js';
     DrillsController,
     ConnectorsController,
     AuditController,
+    AgentController,
   ],
   providers: [
     OrgScopeService,

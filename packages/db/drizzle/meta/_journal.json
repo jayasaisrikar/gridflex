@@ -8,6 +8,13 @@
       "when": 1753056000000,
       "tag": "0000_initial_gridflex",
       "breakpoints": false
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1760889600000,
+      "tag": "0001_agent_harness",
+      "breakpoints": false
     }
   ]
 }

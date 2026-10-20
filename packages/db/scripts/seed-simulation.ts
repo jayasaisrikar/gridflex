@@ -196,6 +196,7 @@ async function main(): Promise<void> {
         seed: SEED,
         dayCount: 5,
         intervalCount: sustainCount,
+        normalLoadKw: DEMO_NORMAL_LOAD_KW,
       }),
       precedingNonEventSamples: [],
       intervalCount: sustainCount,

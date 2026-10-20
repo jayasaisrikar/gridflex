@@ -367,6 +367,55 @@ export interface TelemetryPoint {
   quality: string;
 }
 
+export interface AgentSessionStep {
+  step: number;
+  proposed: { name: string; arguments: Record<string, unknown> };
+  authorized: boolean;
+  refusalCodes: string[];
+  reasoning: string;
+}
+
+export interface AgentSession {
+  id: string;
+  facility_id: string;
+  drill_id: string | null;
+  status: 'RUNNING' | 'AWAITING_APPROVAL' | 'COMPLETED' | 'REFUSED' | 'ABORTED' | 'STEP_BUDGET_EXHAUSTED';
+  situation: string;
+  harness_version: string;
+  model_id: string;
+  steps: AgentSessionStep[];
+  plan_fingerprint: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  started_by: string;
+  started_at: string;
+  finished_at: string | null;
+}
+
+export interface CarbonReportRecord {
+  id: string;
+  facility_id: string;
+  drill_id: string;
+  methodology_version: string;
+  report: {
+    scope: string;
+    delivered_energy_kwh: string;
+    emission_factor: { kg_co2e_per_kwh: string; source: string; version: string };
+    avoided_tco2e: string;
+    baseline_tco2e: string;
+    report_sha256?: string;
+    [key: string]: unknown;
+  };
+  report_sha256: string;
+  emission_factor_source: string;
+  emission_factor_version: string;
+  avoided_tco2e: string;
+  baseline_tco2e: string;
+  created_at: string;
+}
+
 export interface Drill {
   id: string;
   facility_id: string;
@@ -589,4 +638,8 @@ export const api = {
     apiGet<{ entries: ActivityEntry[]; next_before: string | null }>(
       `/facilities/${id}/activity?limit=100`,
     ),
+  agentSessions: (id: string) =>
+    apiGet<{ sessions: AgentSession[] }>(`/facilities/${id}/agent/sessions`),
+  carbonReports: (id: string) =>
+    apiGet<{ reports: CarbonReportRecord[] }>(`/facilities/${id}/carbon-reports`),
 };
